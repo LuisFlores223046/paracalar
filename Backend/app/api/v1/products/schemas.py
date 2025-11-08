@@ -10,17 +10,6 @@ class CategoryBase(BaseModel):
     image_url: Optional[str] = None
 
 
-class CategoryCreate(CategoryBase):
-    pass
-
-
-class CategoryUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    image_url: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
 class CategoryResponse(CategoryBase):
     category_id: int
     is_active: bool
@@ -57,7 +46,7 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     price: float = Field(..., gt=0)
     stock: int = Field(default=0, ge=0)
-    category_id: int
+    category_id: Optional[int] = None  # ✅ Ahora es opcional
     fitness_objective: Optional[str] = Field(None, max_length=100)
     physical_activity: Optional[str] = Field(None, max_length=100)
     sku: Optional[str] = Field(None, max_length=100)
@@ -87,7 +76,7 @@ class ProductResponse(ProductBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    category: CategoryResponse
+    category: Optional[CategoryResponse] = None  # ✅ Ahora es opcional
     images: List[ProductImageResponse] = []
 
     class Config:
@@ -101,7 +90,7 @@ class ProductListResponse(BaseModel):
     stock: int
     average_rating: float
     brand: Optional[str]
-    category: CategoryResponse
+    category: Optional[CategoryResponse] = None  # ✅ Ahora es opcional
     primary_image: Optional[str] = None
 
     class Config:

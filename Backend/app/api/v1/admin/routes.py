@@ -7,7 +7,7 @@ from app.api.deps import get_db, get_current_user, require_admin
 from app.api.v1.admin import schemas
 from app.api.v1.admin.service import AdminStatsService, AdminProductService, AdminReviewService
 from app.api.v1.products import schemas as product_schemas
-from app.api.v1.products.service import ProductService, CategoryService
+from app.api.v1.products.service import ProductService
 from app.models.user import User, UserRole
 
 router = APIRouter()
@@ -117,6 +117,8 @@ def create_product(
         ]
     }
     ```
+    
+    **Nota:** category_id es opcional. Si no se proporciona, el producto no tendrá categoría.
     """
     return ProductService.create_product(db, product_data)
 
@@ -184,54 +186,6 @@ def bulk_product_action(
     return AdminProductService.bulk_update_products(db, action_data)
 
 
-# ============ GESTIÓN DE CATEGORÍAS (ADMIN) ============
-
-@router.post("/categories", response_model=product_schemas.CategoryResponse, status_code=status.HTTP_201_CREATED)
-def create_category(
-    category_data: product_schemas.CategoryCreate,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Crea una nueva categoría.
-    
-    Solo accesible para administradores.
-    """
-    return CategoryService.create_category(db, category_data)
-
-
-@router.put("/categories/{category_id}", response_model=product_schemas.CategoryResponse)
-def update_category(
-    category_id: int,
-    category_data: product_schemas.CategoryUpdate,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Actualiza una categoría existente.
-    
-    Solo accesible para administradores.
-    """
-    return CategoryService.update_category(db, category_id, category_data)
-
-
-@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category(
-    category_id: int,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Elimina una categoría (soft delete).
-    
-    No se puede eliminar si tiene productos activos asociados.
-    
-    Solo accesible para administradores.
-    """
-    CategoryService.delete_category(db, category_id)
-    return None
-
-
 # ============ MODERACIÓN DE REVIEWS ============
 
 @router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -281,3 +235,8 @@ def moderate_review(
     """
     AdminReviewService.moderate_review(db, review_id, action_data)
     return {"message": "Reseña moderada exitosamente"}
+
+
+# ============ NOTA SOBRE CATEGORÍAS ============
+# Las categorías son predefinidas y no pueden ser creadas/editadas por admin.
+# Para ver las categorías disponibles, usa: GET /api/v1/products/categories/

@@ -8,7 +8,7 @@ class Product(Base):
     __tablename__ = "products"
     
     product_id = Column(Integer, primary_key=True, index=True)
-    category_id = Column(Integer, ForeignKey("categories.category_id"), nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.category_id"), nullable=True)  # ✅ Ahora es opcional
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
     price = Column(Float, nullable=False)

@@ -140,16 +140,17 @@ class ProductService:
         product_data: schemas.ProductCreate
     ) -> Product:
         """Crea un nuevo producto"""
-        # Verificar que la categoría existe
-        category = db.query(Category).filter(
-            Category.category_id == product_data.category_id
-        ).first()
-        
-        if not category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Categoría no encontrada"
-            )
+        # ✅ Verificar que la categoría existe solo si se proporciona
+        if product_data.category_id:
+            category = db.query(Category).filter(
+                Category.category_id == product_data.category_id
+            ).first()
+            
+            if not category:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Categoría no encontrada"
+                )
         
         # Verificar SKU único si se proporciona
         if product_data.sku:
@@ -379,7 +380,7 @@ class ReviewService:
 
 
 class CategoryService:
-    """Servicio para gestión de categorías"""
+    """Servicio para gestión de categorías (solo lectura)"""
     
     @staticmethod
     def get_all_categories(db: Session, is_active: Optional[bool] = True) -> List[Category]:
@@ -405,77 +406,3 @@ class CategoryService:
             )
         
         return category
-    
-    @staticmethod
-    def create_category(db: Session, category_data: schemas.CategoryCreate) -> Category:
-        """Crea una nueva categoría"""
-        # Verificar nombre único
-        existing = db.query(Category).filter(
-            Category.name == category_data.name
-        ).first()
-        
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Ya existe una categoría con ese nombre"
-            )
-        
-        db_category = Category(**category_data.model_dump())
-        db.add(db_category)
-        db.commit()
-        db.refresh(db_category)
-        
-        return db_category
-    
-    @staticmethod
-    def update_category(
-        db: Session,
-        category_id: int,
-        category_data: schemas.CategoryUpdate
-    ) -> Category:
-        """Actualiza una categoría"""
-        category = CategoryService.get_category_by_id(db, category_id)
-        
-        # Verificar nombre único si se está actualizando
-        if category_data.name and category_data.name != category.name:
-            existing = db.query(Category).filter(
-                Category.name == category_data.name
-            ).first()
-            
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Ya existe una categoría con ese nombre"
-                )
-        
-        update_data = category_data.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(category, field, value)
-        
-        db.commit()
-        db.refresh(category)
-        
-        return category
-    
-    @staticmethod
-    def delete_category(db: Session, category_id: int) -> bool:
-        """Elimina una categoría (soft delete)"""
-        category = CategoryService.get_category_by_id(db, category_id)
-        
-        # Verificar que no tenga productos activos
-        active_products = db.query(Product).filter(
-            and_(
-                Product.category_id == category_id,
-                Product.is_active == True
-            )
-        ).count()
-        
-        if active_products > 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No se puede eliminar. Hay {active_products} productos activos en esta categoría"
-            )
-        
-        category.is_active = False
-        db.commit()
-        return True
