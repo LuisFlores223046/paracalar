@@ -7,6 +7,7 @@ from app.models.shopping_cart import ShoppingCart
 from app.models.cart_item import CartItem
 from app.models.review import Review
 from app.models.order_item import OrderItem
+from app.models.order import Order  # ← AGREGAR ESTA LÍNEA
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "CartItem",
     "Review",
     "OrderItem",
+    "Order",  # ← AGREGAR ESTA LÍNEA
 ]
