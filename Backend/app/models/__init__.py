@@ -6,6 +6,7 @@ from app.models.product_image import ProductImage
 from app.models.shopping_cart import ShoppingCart
 from app.models.cart_item import CartItem
 from app.models.review import Review
+from app.models.order_item import OrderItem
 
 __all__ = [
     "Base",
@@ -16,4 +17,5 @@ __all__ = [
     "ShoppingCart",
     "CartItem",
     "Review",
+    "OrderItem",
 ]
