@@ -1,15 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
+from app.config import settings
 
 # Crear la aplicación FastAPI con metadatos mejorados
 app = FastAPI(
-    title="BeFit API",
+    title=settings.APP_NAME,
     description="""
     ## API REST para plataforma de e-commerce de productos fitness
 
     Esta API proporciona endpoints para:
     
+    * **Autenticación**: Sistema completo con AWS Cognito (registro, login, recuperación de contraseña)
     * **Productos**: Gestión completa de productos (CRUD, búsqueda, filtros)
     * **Categorías**: Organización de productos por categorías
     * **Carrito de compras**: Gestión del carrito de usuarios
@@ -19,10 +21,16 @@ app = FastAPI(
     ### Autenticación
     La mayoría de los endpoints requieren autenticación mediante Bearer Token.
     
+    Flujo de autenticación:
+    1. Registrarse en `/api/v1/auth/signup`
+    2. Confirmar email con código en `/api/v1/auth/confirm`
+    3. Iniciar sesión en `/api/v1/auth/login` para obtener tokens
+    4. Incluir el `access_token` en el header: `Authorization: Bearer <token>`
+    
     ### Base URL
     Todos los endpoints están bajo el prefijo `/api/v1`
     """,
-    version="1.0.0",
+    version=settings.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
     contact={
@@ -37,7 +45,7 @@ app = FastAPI(
 # Configurar CORS (Cross-Origin Resource Sharing)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ⚠️ En producción, especifica los dominios permitidos
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,6 +54,7 @@ app.add_middleware(
 # Incluir el router principal de la API v1
 # Todos los endpoints estarán disponibles bajo /api/v1
 app.include_router(api_router, prefix="/api/v1")
+
 
 # ============ ENDPOINTS RAÍZ ============
 
@@ -57,11 +66,12 @@ def root():
     Retorna información básica sobre la API y enlaces útiles.
     """
     return {
-        "message": "¡Bienvenido a la API de BeFit!",
-        "version": "1.0.0",
+        "message": f"¡Bienvenido a {settings.APP_NAME}!",
+        "version": settings.APP_VERSION,
         "documentation": "/docs",
         "alternative_docs": "/redoc",
         "endpoints": {
+            "auth": "/api/v1/auth",
             "products": "/api/v1/products",
             "cart": "/api/v1/cart",
             "admin": "/api/v1/admin"
@@ -79,8 +89,8 @@ def health_check():
     """
     return {
         "status": "healthy",
-        "service": "BeFit API",
-        "version": "1.0.0"
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION
     }
 
 
@@ -94,6 +104,16 @@ def api_v1_root():
     return {
         "version": "1.0",
         "modules": {
+            "auth": {
+                "path": "/api/v1/auth",
+                "description": "Autenticación y gestión de usuarios",
+                "endpoints": {
+                    "signup": "/api/v1/auth/signup",
+                    "login": "/api/v1/auth/login",
+                    "confirm": "/api/v1/auth/confirm",
+                    "forgot_password": "/api/v1/auth/forgot-password"
+                }
+            },
             "products": {
                 "path": "/api/v1/products",
                 "description": "Gestión de productos y categorías"
@@ -118,7 +138,9 @@ async def startup_event():
     Evento que se ejecuta al iniciar la aplicación
     """
     print("🚀 BeFit API iniciando...")
-    print("📚 Documentación disponible en: http://localhost:8000/docs")
+    print(f"📚 Documentación disponible en: http://localhost:8000/docs")
+    print(f"🔐 Autenticación: AWS Cognito habilitado")
+    print(f"💾 Base de datos: {settings.DATABASE_URL}")
 
 
 @app.on_event("shutdown")

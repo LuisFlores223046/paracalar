@@ -1,9 +1,14 @@
 from app.core.database import Base
+
+# Importar enums primero
+from app.models.enum import UserRole, Gender, AuthType, OrderStatus
+
+# Importar modelos
 from app.models.user import User
-from app.models.fitness_profile import FitnessProfile  # ← AGREGAR
-from app.models.address import Address  # ← AGREGAR
-from app.models.payment_method import PaymentMethod  # ← AGREGAR
-from app.models.notification import Notification  # ← AGREGAR
+from app.models.fitness_profile import FitnessProfile
+from app.models.address import Address
+from app.models.payment_method import PaymentMethod
+from app.models.notification import Notification
 from app.models.product import Product
 from app.models.category import Category
 from app.models.product_image import ProductImage
@@ -15,11 +20,17 @@ from app.models.order import Order
 
 __all__ = [
     "Base",
+    # Enums
+    "UserRole",
+    "Gender",
+    "AuthType",
+    "OrderStatus",
+    # Modelos
     "User",
-    "FitnessProfile",  # ← AGREGAR
-    "Address",  # ← AGREGAR
-    "PaymentMethod",  # ← AGREGAR
-    "Notification",  # ← AGREGAR
+    "FitnessProfile",
+    "Address",
+    "PaymentMethod",
+    "Notification",
     "Product",
     "Category",
     "ProductImage",

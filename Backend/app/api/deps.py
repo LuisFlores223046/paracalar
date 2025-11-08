@@ -1,51 +1,88 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.core.database import SessionLocal
-from app.models.user import User, UserRole
+from app.core.database import get_db
+from app.models.user import User
+from app.models.enum import UserRole
+from app.api.v1.auth.service import cognito_service
 
 # Security scheme
 security = HTTPBearer()
 
 
-def get_db():
+def get_token_from_header(
+    credentials: HTTPAuthorizationCredentials = Security(security)
+) -> str:
     """
-    Dependencia para obtener la sesión de base de datos.
+    Extrae el token del header Authorization.
+    
+    Raises:
+        HTTPException: Si no se proporcionan credenciales
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    if not credentials or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se proporcionaron credenciales de autenticación",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials.credentials
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    token: str = Depends(get_token_from_header),
     db: Session = Depends(get_db)
 ) -> User:
     """
     Dependencia para obtener el usuario actual autenticado.
-    """
-    token = credentials.credentials
     
-    # ⚠️ TEMPORAL: Crear usuario admin por defecto
-    user = db.query(User).filter(User.email == "admin@befit.com").first()
+    Verifica el token JWT con Cognito y obtiene el usuario de la base de datos.
+    
+    Args:
+        token: Token JWT del header Authorization
+        db: Sesión de base de datos
+        
+    Returns:
+        Usuario autenticado
+        
+    Raises:
+        HTTPException: Si el token es inválido o el usuario no existe
+    """
+    # Verificar token con Cognito
+    payload = cognito_service.verify_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Obtener cognito_sub del payload
+    cognito_sub = payload.get('sub')
+    
+    if not cognito_sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido: falta identificador de usuario",
+        )
+    
+    # Buscar usuario en la base de datos por cognito_sub
+    user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
     
     if not user:
-        # Crear usuario admin temporal
-        user = User(
-            email="admin@befit.com",
-            first_name="Admin",
-            last_name="BeFit",
-            role=UserRole.ADMIN,  # ← ROL ADMIN
-            is_active=True,
-            is_verified=True
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado en la base de datos"
         )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    
+    # Verificar que la cuenta esté activa
+    if not user.account_status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="La cuenta de usuario está desactivada"
+        )
     
     return user
 
@@ -60,10 +97,10 @@ def require_admin(
         current_user: Usuario actual obtenido de get_current_user
     
     Raises:
-        HTTPException: Si el usuario no es administrador.
+        HTTPException: Si el usuario no es administrador
     
     Returns:
-        User: El usuario administrador.
+        Usuario administrador
     """
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -75,7 +112,9 @@ def require_admin(
 
 
 def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(
+        HTTPBearer(auto_error=False)
+    ),
     db: Session = Depends(get_db)
 ) -> Optional[User]:
     """
@@ -84,11 +123,33 @@ def get_optional_user(
     
     Útil para endpoints que funcionan tanto con usuarios autenticados
     como no autenticados (pero con diferente comportamiento).
+    
+    Args:
+        credentials: Credenciales opcionales del header
+        db: Sesión de base de datos
+        
+    Returns:
+        Usuario autenticado o None
     """
-    if not credentials:
+    if not credentials or not credentials.credentials:
         return None
     
     try:
-        return get_current_user(credentials, db)
-    except HTTPException:
+        token = credentials.credentials
+        payload = cognito_service.verify_token(token)
+        
+        if not payload:
+            return None
+        
+        cognito_sub = payload.get('sub')
+        if not cognito_sub:
+            return None
+        
+        user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
+        
+        if not user or not user.account_status:
+            return None
+        
+        return user
+    except Exception:
         return None
