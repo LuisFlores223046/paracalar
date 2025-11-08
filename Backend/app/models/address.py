@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy import Integer, String, Boolean, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 from app.core.database import Base
 
@@ -7,20 +7,28 @@ from app.core.database import Base
 class Address(Base):
     __tablename__ = "addresses"
     
-    address_id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    # ============ KEYS ============
+    address_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("users.user_id", ondelete="CASCADE"), 
+        nullable=False
+    )
     
-    street = Column(String(255), nullable=False)
-    city = Column(String(100), nullable=False)
-    state = Column(String(100), nullable=False)
-    postal_code = Column(String(20), nullable=False)
-    country = Column(String(100), nullable=False)
+    # ============ ATTRIBUTES ============
+    street: Mapped[str] = mapped_column(String(255), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(100), nullable=False)
+    postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
     
-    is_default = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     
-    # Relaciones
-    user = relationship("User", back_populates="addresses")
+    # ============ CONTROL ============
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     
-    def __repr__(self):
-        return f"<Address {self.city}, {self.state}>"
+    # ============ RELACIONES ============
+    user: Mapped["User"] = relationship("User", back_populates="addresses")
+    
+    def __repr__(self) -> str:
+        return f"<Address(address_id={self.address_id}, city={self.city}, state={self.state})>"

@@ -1,41 +1,32 @@
-"""from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# Obtener URL de la base de datos del archivo .env
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/befit_db")
-
-# Crear engine
-engine = create_engine(DATABASE_URL)
-
-# Crear sesión
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base para los modelos
-Base = declarative_base()"""
-
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-import os
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from typing import Generator
 
-# Usar SQLite en lugar de PostgreSQL
-# El archivo se creará en Backend/befit.db
+# Usar SQLite
 DATABASE_URL = "sqlite:///./befit.db"
 
 # Crear engine con configuraciones para SQLite
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Necesario para SQLite
+    connect_args={"check_same_thread": False},
+    echo=False  # Cambia a True si quieres ver las queries SQL
 )
 
 # Crear sesión
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base para los modelos
-Base = declarative_base()
+# Base moderna para los modelos
+class Base(DeclarativeBase):
+    pass
 
+# Dependency para obtener la sesión de base de datos
+def get_db() -> Generator:
+    """
+    Dependencia que proporciona una sesión de base de datos.
+    Se cierra automáticamente después de cada request.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

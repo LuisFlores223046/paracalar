@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 
 from app.models.product import Product
+from app.models.category import Category  # ✅ Agregar este import
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.user import User
@@ -46,13 +47,11 @@ class AdminStatsService:
     @staticmethod
     def _get_sales_stats(db: Session) -> schemas.SalesStats:
         """Obtiene estadísticas de ventas"""
-        # Total de ventas y órdenes
-        # Nota: Asumiendo que Order tiene un campo 'status' y 'total_amount'
-        # Ajusta según tu modelo real
+        # Total de ventas y órdenes completadas
         total_sales_query = db.query(
             func.sum(Order.total_amount).label('total'),
             func.count(Order.order_id).label('count')
-        ).filter(Order.status == 'completed')  # Ajustar según tu enum
+        ).filter(Order.status == 'completed')
         
         result = total_sales_query.first()
         total_sales = float(result.total) if result.total else 0.0
@@ -113,7 +112,7 @@ class AdminStatsService:
     def _get_user_stats(db: Session) -> schemas.UserStats:
         """Obtiene estadísticas de usuarios"""
         total_users = db.query(User).count()
-        active_users = db.query(User).filter(User.is_active == True).count()
+        active_users = db.query(User).filter(User.account_status == True).count()
         
         # Usuarios nuevos este mes
         start_of_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)

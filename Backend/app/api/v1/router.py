@@ -12,26 +12,26 @@ api_router = APIRouter()
 api_router.include_router(
     auth_router,
     prefix="/auth",
-    tags=["authentication"]
+    tags=["Authentication"]
 )
 
 # ============ PRODUCTOS ============
 api_router.include_router(
     productos_router,
     prefix="/products",
-    tags=["products"]
+    tags=["Products"]
 )
 
 # ============ CARRITO DE COMPRAS ============
 api_router.include_router(
     carrito_router,
     prefix="/cart",
-    tags=["cart"]
+    tags=["Cart"]
 )
 
 # ============ ADMINISTRACIÓN ============
 api_router.include_router(
     admin_router,
     prefix="/admin",
-    tags=["admin"]
+    tags=["Admin"]
 )

@@ -1,21 +1,32 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Integer, Float, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.core.database import Base
 
 
 class OrderItem(Base):
     __tablename__ = "order_items"
     
-    order_item_id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.order_id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.product_id"), nullable=False)
-    quantity = Column(Integer, nullable=False)
-    unit_price = Column(Float, nullable=False)  # Precio al momento de la compra
-    subtotal = Column(Float, nullable=False)
+    # ============ KEYS ============
+    order_item_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
+    order_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("orders.order_id", ondelete="CASCADE"), 
+        nullable=False
+    )
+    product_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("products.product_id", ondelete="RESTRICT"), 
+        nullable=False
+    )
     
-    # Relaciones
-    order = relationship("Order", back_populates="items")
-    product = relationship("Product", back_populates="order_items")
+    # ============ ATTRIBUTES ============
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price: Mapped[float] = mapped_column(Float, nullable=False)  # Precio al momento de la compra
+    subtotal: Mapped[float] = mapped_column(Float, nullable=False)
     
-    def __repr__(self):
-        return f"<OrderItem order_id={self.order_id} product_id={self.product_id}>"
+    # ============ RELACIONES ============
+    order: Mapped["Order"] = relationship("Order", back_populates="items")
+    product: Mapped["Product"] = relationship("Product", back_populates="order_items")
+    
+    def __repr__(self) -> str:
+        return f"<OrderItem(order_item_id={self.order_item_id}, order_id={self.order_id}, product_id={self.product_id})>"

@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, DateTime, Boolean
-from sqlalchemy.orm import relationship
+from sqlalchemy import Integer, String, Float, Text, ForeignKey, Boolean
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from typing import Optional, List
 from datetime import datetime
 from app.core.database import Base
 
@@ -7,33 +8,48 @@ from app.core.database import Base
 class Product(Base):
     __tablename__ = "products"
     
-    product_id = Column(Integer, primary_key=True, index=True)
-    category_id = Column(Integer, ForeignKey("categories.category_id"), nullable=True)  # ✅ Ahora es opcional
-    name = Column(String(255), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    price = Column(Float, nullable=False)
-    stock = Column(Integer, default=0, nullable=False)
-    average_rating = Column(Float, default=0.0, nullable=True)
+    # ============ KEYS ============
+    product_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
+    category_id: Mapped[Optional[int]] = mapped_column(
+        Integer, 
+        ForeignKey("categories.category_id", ondelete="SET NULL"), 
+        nullable=True
+    )
     
-    # Campos para filtrado
-    fitness_objective = Column(String(100), nullable=True)  # muscle_gain, weight_loss, etc.
-    physical_activity = Column(String(100), nullable=True)  # running, weightlifting, etc.
+    # ============ ATTRIBUTES ============
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    stock: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    average_rating: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     
-    # SEO y metadatos
-    sku = Column(String(100), unique=True, nullable=True)
-    brand = Column(String(100), nullable=True)
+    # ============ CAMPOS PARA FILTRADO ============
+    fitness_objective: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    physical_activity: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     
-    # Control
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    # ============ SEO Y METADATOS ============
+    sku: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
+    brand: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     
-    # Relaciones
-    category = relationship("Category", back_populates="products")
-    images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
-    reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
-    cart_items = relationship("CartItem", back_populates="product")
-    order_items = relationship("OrderItem", back_populates="product")
+    # ============ CONTROL ============
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
-    def __repr__(self):
-        return f"<Product {self.name}>"
+    # ============ RELACIONES ============
+    category: Mapped[Optional["Category"]] = relationship("Category", back_populates="products")
+    images: Mapped[List["ProductImage"]] = relationship(
+        "ProductImage", 
+        back_populates="product", 
+        cascade="all, delete-orphan"
+    )
+    reviews: Mapped[List["Review"]] = relationship(
+        "Review", 
+        back_populates="product", 
+        cascade="all, delete-orphan"
+    )
+    cart_items: Mapped[List["CartItem"]] = relationship("CartItem", back_populates="product")
+    order_items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="product")
+    
+    def __repr__(self) -> str:
+        return f"<Product(product_id={self.product_id}, name={self.name})>"

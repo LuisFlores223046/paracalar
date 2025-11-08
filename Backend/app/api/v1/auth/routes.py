@@ -65,12 +65,12 @@ def get_current_user(token: str = Depends(get_token_from_header)) -> Dict:
 
 
 # ============ ENDPOINTS DE REGISTRO ============
+# ✅ SIN tags aquí - se heredan del router principal
 
 @router.post(
     "/signup", 
     response_model=schemas.SignUpResponse, 
-    status_code=status.HTTP_201_CREATED,
-    tags=["Authentication"]
+    status_code=status.HTTP_201_CREATED
 )
 async def register_user(
     db: Session = Depends(get_db),
@@ -123,8 +123,7 @@ async def register_user(
 @router.post(
     "/confirm", 
     response_model=schemas.MessageResponse, 
-    status_code=status.HTTP_200_OK,
-    tags=["Authentication"]
+    status_code=status.HTTP_200_OK
 )
 async def confirm_signup(data: schemas.ConfirmSignUpRequest):
     """
@@ -145,8 +144,7 @@ async def confirm_signup(data: schemas.ConfirmSignUpRequest):
 
 @router.post(
     "/resend-code", 
-    response_model=schemas.MessageResponse,
-    tags=["Authentication"]
+    response_model=schemas.MessageResponse
 )
 async def resend_code(data: schemas.ResendCodeRequest):
     """
@@ -169,8 +167,7 @@ async def resend_code(data: schemas.ResendCodeRequest):
 
 @router.post(
     "/login", 
-    response_model=schemas.TokenResponse,
-    tags=["Authentication"]
+    response_model=schemas.TokenResponse
 )
 async def login(credentials: schemas.SignInRequest):
     """
@@ -201,8 +198,7 @@ async def login(credentials: schemas.SignInRequest):
 
 @router.post(
     "/refresh", 
-    response_model=schemas.TokenResponse,
-    tags=["Authentication"]
+    response_model=schemas.TokenResponse
 )
 async def refresh_access_token(data: schemas.RefreshTokenRequest):
     """
@@ -231,8 +227,7 @@ async def refresh_access_token(data: schemas.RefreshTokenRequest):
 
 @router.post(
     "/logout", 
-    response_model=schemas.MessageResponse,
-    tags=["Authentication"]
+    response_model=schemas.MessageResponse
 )
 async def logout(token: str = Depends(get_token_from_header)):
     """
@@ -256,8 +251,7 @@ async def logout(token: str = Depends(get_token_from_header)):
 
 @router.post(
     "/forgot-password", 
-    response_model=schemas.MessageResponse,
-    tags=["Password Management"]
+    response_model=schemas.MessageResponse
 )
 async def forgot_password(data: schemas.ForgotPasswordRequest):
     """
@@ -278,8 +272,7 @@ async def forgot_password(data: schemas.ForgotPasswordRequest):
 
 @router.post(
     "/confirm-forgot-password", 
-    response_model=schemas.MessageResponse,
-    tags=["Password Management"]
+    response_model=schemas.MessageResponse
 )
 async def confirm_forgot_password(data: schemas.ConfirmForgotPasswordRequest):
     """
@@ -302,8 +295,7 @@ async def confirm_forgot_password(data: schemas.ConfirmForgotPasswordRequest):
 
 @router.post(
     "/change-password",
-    response_model=schemas.MessageResponse,
-    tags=["Password Management"]
+    response_model=schemas.MessageResponse
 )
 async def change_password(
     data: schemas.ChangePasswordRequest,
@@ -329,10 +321,7 @@ async def change_password(
 
 # ============ ENDPOINT DE INFORMACIÓN DE USUARIO ============
 
-@router.get(
-    "/me",
-    tags=["User Info"]
-)
+@router.get("/me")
 async def get_my_info(current_user: Dict = Depends(get_current_user)):
     """
     Obtiene información del usuario autenticado.

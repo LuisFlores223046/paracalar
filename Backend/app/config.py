@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
+import json
 
 
 class Settings(BaseSettings):
@@ -24,6 +25,16 @@ class Settings(BaseSettings):
     # ============ JWT ============
     JWT_ALGORITHM: str = "RS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_SECRET_KEY: Optional[str] = None  # Para JWT manual si lo usas
+    
+    # ============ PAYPAL ============
+    PAYPAL_CLIENT_ID: Optional[str] = None
+    PAYPAL_CLIENT_SECRET: Optional[str] = None
+    PAYPAL_API_BASE_URL: Optional[str] = None
+    
+    # ============ STRIPE ============
+    STRIPE_API_KEY: Optional[str] = None
+    STRIPE_SECRET_KEY: Optional[str] = None
     
     # ============ APLICACIÓN ============
     APP_NAME: str = "BeFit API"
@@ -31,11 +42,21 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # ============ CORS ============
-    CORS_ORIGINS: list = ["*"]  # En producción, especificar dominios
+    BACKEND_CORS_ORIGINS: str = '["http://localhost:3000", "http://localhost:8000"]'
+    
+    @property
+    def CORS_ORIGINS(self) -> List[str]:
+        """Convierte el string JSON de CORS_ORIGINS a una lista"""
+        try:
+            return json.loads(self.BACKEND_CORS_ORIGINS)
+        except:
+            return ["*"]
     
     class Config:
         env_file = ".env"
         case_sensitive = True
+        # Permitir campos extra si es necesario
+        extra = "ignore"  # Esto ignora variables extras en el .env
 
 
 # Instancia global de configuración
