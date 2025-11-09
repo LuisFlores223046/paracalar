@@ -1,3 +1,4 @@
+import os
 from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -49,6 +50,8 @@ def get_current_user(
     Raises:
         HTTPException: Si el token es inválido o el usuario no existe
     """
+
+    
     # Verificar token con Cognito
     payload = cognito_service.verify_token(token)
     
@@ -102,6 +105,14 @@ def require_admin(
     Returns:
         Usuario administrador
     """
+
+    if os.getenv("DEV_MODE") == "true":
+        print("************************************************************")
+        print("ADVERTENCIA: DEV_MODE activo. Saltando verificación de admin.")
+        print(f"Usuario '{current_user.email}' tratado como ADMIN.")
+        print("************************************************************")
+        return current_user # Devuelve el usuario actual, sea admin o no
+
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

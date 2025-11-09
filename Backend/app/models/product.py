@@ -2,6 +2,7 @@ from sqlalchemy import Integer, String, Float, Text, ForeignKey, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from typing import Optional, List
 from datetime import datetime
+from decimal import Decimal
 from app.core.database import Base
 
 
