@@ -1,30 +1,12 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
 
-# ============ CATEGORY SCHEMAS ============
-class CategoryBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = None
-    image_url: Optional[str] = None
-
-
-class CategoryResponse(CategoryBase):
-    category_id: int
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 # ============ PRODUCT IMAGE SCHEMAS ============
 class ProductImageBase(BaseModel):
-    image_url: str
+    image_path: str
     is_primary: bool = False
-    display_order: int = 0
 
 
 class ProductImageCreate(ProductImageBase):
@@ -34,7 +16,6 @@ class ProductImageCreate(ProductImageBase):
 class ProductImageResponse(ProductImageBase):
     image_id: int
     product_id: int
-    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -44,53 +25,53 @@ class ProductImageResponse(ProductImageBase):
 class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
+    brand: str = Field(..., min_length=1, max_length=100)
+    category: str = Field(..., min_length=1, max_length=100)  # ✅ Ahora es string directo
+    physical_activities: List[str] = Field(default_factory=list)  # ✅ JSON array
+    fitness_objectives: List[str] = Field(default_factory=list)  # ✅ JSON array
+    nutritional_value: str
     price: float = Field(..., gt=0)
     stock: int = Field(default=0, ge=0)
-    category_id: Optional[int] = None  # ✅ Ahora es opcional
-    fitness_objective: Optional[str] = Field(None, max_length=100)
-    physical_activity: Optional[str] = Field(None, max_length=100)
-    sku: Optional[str] = Field(None, max_length=100)
-    brand: Optional[str] = Field(None, max_length=100)
 
 
 class ProductCreate(ProductBase):
-    images: Optional[List[ProductImageCreate]] = []
+    product_images: Optional[List[ProductImageCreate]] = []  # ✅ Nombre correcto
 
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
+    brand: Optional[str] = Field(None, min_length=1, max_length=100)
+    category: Optional[str] = Field(None, min_length=1, max_length=100)  # ✅ String
+    physical_activities: Optional[List[str]] = None  # ✅ JSON array
+    fitness_objectives: Optional[List[str]] = None  # ✅ JSON array
+    nutritional_value: Optional[str] = None
     price: Optional[float] = Field(None, gt=0)
     stock: Optional[int] = Field(None, ge=0)
-    category_id: Optional[int] = None
-    fitness_objective: Optional[str] = Field(None, max_length=100)
-    physical_activity: Optional[str] = Field(None, max_length=100)
-    sku: Optional[str] = Field(None, max_length=100)
-    brand: Optional[str] = Field(None, max_length=100)
     is_active: Optional[bool] = None
 
 
 class ProductResponse(ProductBase):
     product_id: int
-    average_rating: float
+    average_rating: Optional[float]
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    category: Optional[CategoryResponse] = None  # ✅ Ahora es opcional
-    images: List[ProductImageResponse] = []
+    product_images: List[ProductImageResponse] = []  # ✅ Nombre correcto
 
     class Config:
         from_attributes = True
 
 
 class ProductListResponse(BaseModel):
+    """Schema simplificado para listado de productos"""
     product_id: int
     name: str
+    brand: str
+    category: str  # ✅ String directo
     price: float
     stock: int
-    average_rating: float
-    brand: Optional[str]
-    category: Optional[CategoryResponse] = None  # ✅ Ahora es opcional
+    average_rating: Optional[float]
     primary_image: Optional[str] = None
 
     class Config:

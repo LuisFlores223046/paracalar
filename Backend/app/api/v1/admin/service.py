@@ -1,15 +1,15 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, extract
-from typing import List, Dict, Any, Optional
+from sqlalchemy import func, and_
+from typing import List, Optional
 from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 
 from app.models.product import Product
-from app.models.category import Category  # ✅ Agregar este import
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.user import User
 from app.models.review import Review
+from app.models.enum import OrderStatus
 from app.api.v1.admin import schemas
 
 
@@ -33,7 +33,7 @@ class AdminStatsService:
             and_(Product.is_active == True, Product.stock < 10)
         ).count()
         
-        # Reviews pendientes (opcional, si tienes un sistema de moderación)
+        # Reviews pendientes
         pending_reviews = db.query(Review).count()
         
         return schemas.AdminDashboardStats(
@@ -47,11 +47,12 @@ class AdminStatsService:
     @staticmethod
     def _get_sales_stats(db: Session) -> schemas.SalesStats:
         """Obtiene estadísticas de ventas"""
+        # ✅ Usar order_status en lugar de status
         # Total de ventas y órdenes completadas
         total_sales_query = db.query(
             func.sum(Order.total_amount).label('total'),
             func.count(Order.order_id).label('count')
-        ).filter(Order.status == 'completed')
+        ).filter(Order.order_status == OrderStatus.DELIVERED)  # ✅ Cambio aquí
         
         result = total_sales_query.first()
         total_sales = float(result.total) if result.total else 0.0
@@ -61,7 +62,7 @@ class AdminStatsService:
         total_products_sold = db.query(
             func.sum(OrderItem.quantity)
         ).join(Order).filter(
-            Order.status == 'completed'
+            Order.order_status == OrderStatus.DELIVERED  # ✅ Cambio aquí
         ).scalar() or 0
         
         # Promedio de valor de orden
@@ -82,7 +83,7 @@ class AdminStatsService:
         ).outerjoin(
             Review, Product.product_id == Review.product_id
         ).filter(
-            Order.status == 'completed'
+            Order.order_status == OrderStatus.DELIVERED  # ✅ Cambio aquí
         ).group_by(
             Product.product_id
         ).order_by(
@@ -96,7 +97,7 @@ class AdminStatsService:
                 name=row.name,
                 total_sold=row.total_sold or 0,
                 total_revenue=float(row.total_revenue or 0),
-                average_rating=float(row.average_rating or 0),
+                average_rating=float(row.average_rating) if row.average_rating else None,  # ✅ Puede ser None
                 total_reviews=row.total_reviews or 0
             ))
         
@@ -144,21 +145,22 @@ class AdminStatsService:
         if not end_date:
             end_date = datetime.now()
         
+        # ✅ Usar order.order_date (único campo de fecha que existe)
         # Ventas por día
         daily_sales = db.query(
-            func.date(Order.created_at).label('date'),
+            func.date(Order.order_date).label('date'),
             func.sum(Order.total_amount).label('total_sales'),
             func.count(Order.order_id).label('total_orders')
         ).filter(
             and_(
-                Order.status == 'completed',
-                Order.created_at >= start_date,
-                Order.created_at <= end_date
+                Order.order_status == OrderStatus.DELIVERED,  # ✅ Cambio aquí
+                Order.order_date >= start_date,
+                Order.order_date <= end_date
             )
         ).group_by(
-            func.date(Order.created_at)
+            func.date(Order.order_date)
         ).order_by(
-            func.date(Order.created_at)
+            func.date(Order.order_date)
         ).all()
         
         details = []
@@ -211,28 +213,26 @@ class AdminStatsService:
         if not end_date:
             end_date = datetime.now()
         
+        # ✅ Category ahora es un atributo string directo de Product
         query = db.query(
             Product.product_id,
             Product.name,
-            Category.name.label('category_name'),
+            Product.category,  # ✅ String directo, no hay JOIN
             func.coalesce(func.sum(OrderItem.quantity), 0).label('total_sold'),
             func.coalesce(func.sum(OrderItem.subtotal), 0).label('revenue'),
             Product.stock,
             Product.average_rating
         ).outerjoin(
-            Category, Product.category_id == Category.category_id
-        ).outerjoin(
             OrderItem, Product.product_id == OrderItem.product_id
         ).outerjoin(
             Order, and_(
                 OrderItem.order_id == Order.order_id,
-                Order.created_at >= start_date,
-                Order.created_at <= end_date,
-                Order.status == 'completed'
+                Order.order_date >= start_date,  # ✅ Usar order_date
+                Order.order_date <= end_date,
+                Order.order_status == OrderStatus.DELIVERED  # ✅ Cambio aquí
             )
         ).group_by(
-            Product.product_id,
-            Category.name
+            Product.product_id
         ).order_by(
             func.sum(OrderItem.quantity).desc()
         )
@@ -242,11 +242,11 @@ class AdminStatsService:
             report.append(schemas.ProductReportItem(
                 product_id=row.product_id,
                 name=row.name,
-                category=row.category_name or "Sin categoría",
+                category=row.category or "Sin categoría",  # ✅ String directo
                 total_sold=row.total_sold,
                 revenue=float(row.revenue),
                 current_stock=row.stock,
-                average_rating=float(row.average_rating or 0)
+                average_rating=float(row.average_rating) if row.average_rating else None  # ✅ Puede ser None
             ))
         
         return report
@@ -337,7 +337,6 @@ class AdminReviewService:
             return True
         
         # Si tienes campos de moderación en tu modelo, actualízalos aquí
-        # Por ejemplo: review.is_approved = True/False
         
         db.commit()
         return True

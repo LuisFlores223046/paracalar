@@ -23,7 +23,7 @@ class CartItemProductInfo(BaseModel):
     name: str
     price: float
     stock: int
-    image_url: Optional[str] = None
+    image_path: Optional[str] = None  # ✅ Cambio: image_path en lugar de image_url
     brand: Optional[str] = None
 
     class Config:
@@ -31,7 +31,7 @@ class CartItemProductInfo(BaseModel):
 
 
 class CartItemResponse(BaseModel):
-    item_id: int
+    cart_item_id: int  # ✅ Nombre correcto del campo
     cart_id: int
     product_id: int
     quantity: int

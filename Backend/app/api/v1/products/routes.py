@@ -5,7 +5,7 @@ import math
 
 from app.api.deps import get_db, get_current_user
 from app.api.v1.products import schemas
-from app.api.v1.products.service import ProductService, ReviewService, CategoryService
+from app.api.v1.products.service import ProductService, ReviewService
 from app.models.user import User
 
 router = APIRouter()
@@ -17,7 +17,7 @@ router = APIRouter()
 def get_all_products(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    category_id: Optional[int] = None,
+    category: Optional[str] = None,  # ✅ Cambio: ahora es string
     fitness_objective: Optional[str] = None,
     physical_activity: Optional[str] = None,
     min_price: Optional[float] = None,
@@ -30,7 +30,7 @@ def get_all_products(
     
     - **page**: Número de página (default: 1)
     - **limit**: Items por página (default: 10, max: 100)
-    - **category_id**: Filtrar por categoría
+    - **category**: Filtrar por categoría (string directo, ej: "Proteínas")
     - **fitness_objective**: Filtrar por objetivo fitness
     - **physical_activity**: Filtrar por actividad física
     - **min_price**: Precio mínimo
@@ -43,7 +43,7 @@ def get_all_products(
         db=db,
         skip=skip,
         limit=limit,
-        category_id=category_id,
+        category=category,  # ✅ Ahora es string
         fitness_objective=fitness_objective,
         physical_activity=physical_activity,
         min_price=min_price,
@@ -55,9 +55,9 @@ def get_all_products(
     items = []
     for product in products:
         primary_image = None
-        if product.images:
-            primary = next((img for img in product.images if img.is_primary), None)
-            primary_image = primary.image_url if primary else product.images[0].image_url
+        if product.product_images:  # ✅ Usar product_images
+            primary = next((img for img in product.product_images if img.is_primary), None)
+            primary_image = primary.image_path if primary else product.product_images[0].image_path
         
         items.append(schemas.ProductListResponse(
             product_id=product.product_id,
@@ -66,7 +66,7 @@ def get_all_products(
             stock=product.stock,
             average_rating=product.average_rating,
             brand=product.brand,
-            category=product.category,
+            category=product.category,  # ✅ String directo
             primary_image=primary_image
         ))
     
@@ -89,7 +89,7 @@ def search_products(
     db: Session = Depends(get_db)
 ):
     """
-    Busca productos por nombre, descripción o marca.
+    Busca productos por nombre, descripción, marca o categoría.
     
     - **query**: Término de búsqueda (requerido)
     """
@@ -106,9 +106,9 @@ def search_products(
     items = []
     for product in products:
         primary_image = None
-        if product.images:
-            primary = next((img for img in product.images if img.is_primary), None)
-            primary_image = primary.image_url if primary else product.images[0].image_url
+        if product.product_images:  # ✅ Usar product_images
+            primary = next((img for img in product.product_images if img.is_primary), None)
+            primary_image = primary.image_path if primary else product.product_images[0].image_path
         
         items.append(schemas.ProductListResponse(
             product_id=product.product_id,
@@ -117,7 +117,7 @@ def search_products(
             stock=product.stock,
             average_rating=product.average_rating,
             brand=product.brand,
-            category=product.category,
+            category=product.category,  # ✅ String directo
             primary_image=primary_image
         ))
     
@@ -151,7 +151,7 @@ def get_related_products(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene productos relacionados basados en categoría y objetivo fitness.
+    Obtiene productos relacionados basados en categoría y objetivos fitness.
     """
     products = ProductService.get_related_products(db, product_id, limit)
     
@@ -159,9 +159,9 @@ def get_related_products(
     items = []
     for product in products:
         primary_image = None
-        if product.images:
-            primary = next((img for img in product.images if img.is_primary), None)
-            primary_image = primary.image_url if primary else product.images[0].image_url
+        if product.product_images:  # ✅ Usar product_images
+            primary = next((img for img in product.product_images if img.is_primary), None)
+            primary_image = primary.image_path if primary else product.product_images[0].image_path
         
         items.append(schemas.ProductListResponse(
             product_id=product.product_id,
@@ -170,7 +170,7 @@ def get_related_products(
             stock=product.stock,
             average_rating=product.average_rating,
             brand=product.brand,
-            category=product.category,
+            category=product.category,  # ✅ String directo
             primary_image=primary_image
         ))
     
@@ -272,27 +272,7 @@ def delete_review(
     return None
 
 
-# ============ ENDPOINTS DE CATEGORÍAS ============
-
-@router.get("/categories/", response_model=List[schemas.CategoryResponse])
-def get_all_categories(
-    is_active: Optional[bool] = True,
-    db: Session = Depends(get_db)
-):
-    """
-    Obtiene todas las categorías.
-    """
-    categories = CategoryService.get_all_categories(db, is_active)
-    return categories
-
-
-@router.get("/categories/{category_id}", response_model=schemas.CategoryResponse)
-def get_category_detail(
-    category_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Obtiene los detalles de una categoría.
-    """
-    category = CategoryService.get_category_by_id(db, category_id)
-    return category
+# ============ NOTA SOBRE CATEGORÍAS ============
+# Las categorías ahora son strings directos en el modelo Product.
+# No hay endpoints separados para categorías.
+# Para filtrar por categoría, usa: GET /api/v1/products/?category=Proteínas

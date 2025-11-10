@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
-from app.api.deps import get_db, get_current_user, require_admin
+from app.api.deps import get_db, require_admin
 from app.api.v1.admin import schemas
 from app.api.v1.admin.service import AdminStatsService, AdminProductService, AdminReviewService
 from app.api.v1.products import schemas as product_schemas
 from app.api.v1.products.service import ProductService
-from app.models.user import User, UserRole
+from app.models.user import User
 
 router = APIRouter()
 
@@ -101,24 +101,21 @@ def create_product(
     {
         "name": "Proteína Whey",
         "description": "Proteína de suero de leche",
+        "brand": "MyBrand",
+        "category": "Proteínas",
+        "physical_activities": ["weightlifting", "crossfit"],
+        "fitness_objectives": ["muscle_gain", "recovery"],
+        "nutritional_value": "25g proteína por servida",
         "price": 599.99,
         "stock": 100,
-        "category_id": 1,
-        "fitness_objective": "muscle_gain",
-        "physical_activity": "weightlifting",
-        "sku": "PROT-001",
-        "brand": "MyBrand",
-        "images": [
+        "product_images": [
             {
-                "image_url": "https://example.com/image.jpg",
-                "is_primary": true,
-                "display_order": 0
+                "image_path": "https://example.com/image.jpg",
+                "is_primary": true
             }
         ]
     }
     ```
-    
-    **Nota:** category_id es opcional. Si no se proporciona, el producto no tendrá categoría.
     """
     return ProductService.create_product(db, product_data)
 
@@ -238,5 +235,6 @@ def moderate_review(
 
 
 # ============ NOTA SOBRE CATEGORÍAS ============
-# Las categorías son predefinidas y no pueden ser creadas/editadas por admin.
-# Para ver las categorías disponibles, usa: GET /api/v1/products/categories/
+# Las categorías ahora son strings directos en Product (no hay tabla separada).
+# Para ver las categorías en uso: analizar el campo 'category' de los productos.
+# No hay endpoints de CRUD para categorías.

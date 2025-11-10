@@ -29,12 +29,12 @@ def get_cart(
     total_items = 0
     total_price = 0.0
     
-    for item in cart.items:
+    for item in cart.cart_items:  # ✅ Usar cart_items
         # Obtener imagen principal del producto
         primary_image = None
-        if item.product.images:
-            primary = next((img for img in item.product.images if img.is_primary), None)
-            primary_image = primary.image_url if primary else item.product.images[0].image_url
+        if item.product.product_images:  # ✅ Usar product_images
+            primary = next((img for img in item.product.product_images if img.is_primary), None)
+            primary_image = primary.image_path if primary else item.product.product_images[0].image_path
         
         # Crear info del producto
         product_info = schemas.CartItemProductInfo(
@@ -42,7 +42,7 @@ def get_cart(
             name=item.product.name,
             price=item.product.price,
             stock=item.product.stock,
-            image_url=primary_image,
+            image_path=primary_image,
             brand=item.product.brand
         )
         
@@ -51,7 +51,7 @@ def get_cart(
         
         # Crear respuesta del item
         item_response = schemas.CartItemResponse(
-            item_id=item.item_id,
+            cart_item_id=item.cart_item_id,  # ✅ Usar cart_item_id correcto
             cart_id=item.cart_id,
             product_id=item.product_id,
             quantity=item.quantity,
@@ -123,23 +123,23 @@ def add_item_to_cart(
     
     # Preparar respuesta
     primary_image = None
-    if cart_item.product.images:
-        primary = next((img for img in cart_item.product.images if img.is_primary), None)
-        primary_image = primary.image_url if primary else cart_item.product.images[0].image_url
+    if cart_item.product.product_images:  # ✅ Usar product_images
+        primary = next((img for img in cart_item.product.product_images if img.is_primary), None)
+        primary_image = primary.image_path if primary else cart_item.product.product_images[0].image_path
     
     product_info = schemas.CartItemProductInfo(
         product_id=cart_item.product.product_id,
         name=cart_item.product.name,
         price=cart_item.product.price,
         stock=cart_item.product.stock,
-        image_url=primary_image,
+        image_path=primary_image,
         brand=cart_item.product.brand
     )
     
     subtotal = cart_item.quantity * cart_item.product.price
     
     return schemas.CartItemResponse(
-        item_id=cart_item.item_id,
+        cart_item_id=cart_item.cart_item_id,  # ✅ Usar cart_item_id
         cart_id=cart_item.cart_id,
         product_id=cart_item.product_id,
         quantity=cart_item.quantity,
@@ -150,9 +150,9 @@ def add_item_to_cart(
     )
 
 
-@router.put("/{item_id}", response_model=schemas.CartItemResponse)
+@router.put("/{cart_item_id}", response_model=schemas.CartItemResponse)
 def update_cart_item(
-    item_id: int,
+    cart_item_id: int,  # ✅ Nombre correcto del parámetro
     update_data: schemas.CartItemUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -172,7 +172,7 @@ def update_cart_item(
     cart_item = CartService.update_cart_item(
         db=db,
         user_id=current_user.user_id,
-        item_id=item_id,
+        cart_item_id=cart_item_id,
         update_data=update_data
     )
     
@@ -181,23 +181,23 @@ def update_cart_item(
     
     # Preparar respuesta
     primary_image = None
-    if cart_item.product.images:
-        primary = next((img for img in cart_item.product.images if img.is_primary), None)
-        primary_image = primary.image_url if primary else cart_item.product.images[0].image_url
+    if cart_item.product.product_images:  # ✅ Usar product_images
+        primary = next((img for img in cart_item.product.product_images if img.is_primary), None)
+        primary_image = primary.image_path if primary else cart_item.product.product_images[0].image_path
     
     product_info = schemas.CartItemProductInfo(
         product_id=cart_item.product.product_id,
         name=cart_item.product.name,
         price=cart_item.product.price,
         stock=cart_item.product.stock,
-        image_url=primary_image,
+        image_path=primary_image,
         brand=cart_item.product.brand
     )
     
     subtotal = cart_item.quantity * cart_item.product.price
     
     return schemas.CartItemResponse(
-        item_id=cart_item.item_id,
+        cart_item_id=cart_item.cart_item_id,  # ✅ Usar cart_item_id
         cart_id=cart_item.cart_id,
         product_id=cart_item.product_id,
         quantity=cart_item.quantity,
@@ -208,9 +208,9 @@ def update_cart_item(
     )
 
 
-@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{cart_item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_item_from_cart(
-    item_id: int,
+    cart_item_id: int,  # ✅ Nombre correcto
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -220,7 +220,7 @@ def remove_item_from_cart(
     CartService.remove_item_from_cart(
         db=db,
         user_id=current_user.user_id,
-        item_id=item_id
+        cart_item_id=cart_item_id
     )
     return None
 
@@ -255,7 +255,7 @@ def validate_cart_stock(
         "valid": true/false,
         "issues": [
             {
-                "item_id": 1,
+                "cart_item_id": 1,
                 "product_id": 5,
                 "product_name": "Producto X",
                 "issue": "Stock insuficiente",

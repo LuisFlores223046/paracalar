@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
-from typing import Optional
 from fastapi import HTTPException, status
 
 from app.models.shopping_cart import ShoppingCart
@@ -18,7 +17,7 @@ class CartService:
         Obtiene el carrito del usuario o lo crea si no existe
         """
         cart = db.query(ShoppingCart).options(
-            joinedload(ShoppingCart.items).joinedload(CartItem.product)
+            joinedload(ShoppingCart.cart_items).joinedload(CartItem.product)  # ✅ Usar cart_items
         ).filter(ShoppingCart.user_id == user_id).first()
         
         if not cart:
@@ -35,7 +34,7 @@ class CartService:
         Obtiene el carrito completo del usuario con todos los items
         """
         cart = db.query(ShoppingCart).options(
-            joinedload(ShoppingCart.items).joinedload(CartItem.product).joinedload(Product.images)
+            joinedload(ShoppingCart.cart_items).joinedload(CartItem.product).joinedload(Product.product_images)  # ✅ Usar cart_items y product_images
         ).filter(ShoppingCart.user_id == user_id).first()
         
         if not cart:
@@ -120,7 +119,7 @@ class CartService:
     def update_cart_item(
         db: Session,
         user_id: int,
-        item_id: int,
+        cart_item_id: int,  # ✅ Nombre correcto
         update_data: schemas.CartItemUpdate
     ) -> CartItem:
         """
@@ -129,7 +128,7 @@ class CartService:
         # Obtener el item y verificar que pertenece al usuario
         cart_item = db.query(CartItem).join(ShoppingCart).filter(
             and_(
-                CartItem.item_id == item_id,
+                CartItem.cart_item_id == cart_item_id,  # ✅ Usar cart_item_id
                 ShoppingCart.user_id == user_id
             )
         ).first()
@@ -168,14 +167,14 @@ class CartService:
     def remove_item_from_cart(
         db: Session,
         user_id: int,
-        item_id: int
+        cart_item_id: int  # ✅ Nombre correcto
     ) -> bool:
         """
         Elimina un item del carrito
         """
         cart_item = db.query(CartItem).join(ShoppingCart).filter(
             and_(
-                CartItem.item_id == item_id,
+                CartItem.cart_item_id == cart_item_id,  # ✅ Usar cart_item_id
                 ShoppingCart.user_id == user_id
             )
         ).first()
@@ -219,8 +218,8 @@ class CartService:
         """
         cart = CartService.get_cart(db, user_id)
         
-        total_items = sum(item.quantity for item in cart.items)
-        total_price = sum(item.quantity * item.product.price for item in cart.items)
+        total_items = sum(item.quantity for item in cart.cart_items)  # ✅ Usar cart_items
+        total_price = sum(item.quantity * item.product.price for item in cart.cart_items)
         
         return {
             "total_items": total_items,
@@ -237,12 +236,12 @@ class CartService:
         
         issues = []
         
-        for item in cart.items:
+        for item in cart.cart_items:  # ✅ Usar cart_items
             product = item.product
             
             if not product.is_active:
                 issues.append({
-                    "item_id": item.item_id,
+                    "cart_item_id": item.cart_item_id,  # ✅ Usar cart_item_id
                     "product_id": product.product_id,
                     "product_name": product.name,
                     "issue": "Producto no disponible",
@@ -251,7 +250,7 @@ class CartService:
                 })
             elif product.stock < item.quantity:
                 issues.append({
-                    "item_id": item.item_id,
+                    "cart_item_id": item.cart_item_id,  # ✅ Usar cart_item_id
                     "product_id": product.product_id,
                     "product_name": product.name,
                     "issue": "Stock insuficiente",

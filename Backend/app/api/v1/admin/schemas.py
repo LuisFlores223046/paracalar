@@ -10,7 +10,7 @@ class ProductStats(BaseModel):
     name: str
     total_sold: int
     total_revenue: float
-    average_rating: float
+    average_rating: Optional[float]  # ✅ Puede ser None
     total_reviews: int
 
 
@@ -61,11 +61,11 @@ class ProductReportItem(BaseModel):
     """Item de reporte de productos"""
     product_id: int
     name: str
-    category: str
+    category: str  # ✅ String directo
     total_sold: int
     revenue: float
     current_stock: int
-    average_rating: float
+    average_rating: Optional[float]  # ✅ Puede ser None
 
 
 class SalesReport(BaseModel):

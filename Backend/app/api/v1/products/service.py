@@ -4,10 +4,8 @@ from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 
 from app.models.product import Product
-from app.models.category import Category
 from app.models.product_image import ProductImage
 from app.models.review import Review
-from app.models.user import User
 from app.api.v1.products import schemas
 
 
@@ -19,9 +17,9 @@ class ProductService:
         db: Session,
         skip: int = 0,
         limit: int = 10,
-        category_id: Optional[int] = None,
-        fitness_objective: Optional[str] = None,
+        category: Optional[str] = None,  # ✅ Cambio: ahora es string
         physical_activity: Optional[str] = None,
+        fitness_objective: Optional[str] = None,
         min_price: Optional[float] = None,
         max_price: Optional[float] = None,
         is_active: bool = True
@@ -31,22 +29,28 @@ class ProductService:
         Retorna (productos, total_count)
         """
         query = db.query(Product).options(
-            joinedload(Product.category),
-            joinedload(Product.images)
+            joinedload(Product.product_images)
         )
         
         # Filtros
         if is_active is not None:
             query = query.filter(Product.is_active == is_active)
         
-        if category_id:
-            query = query.filter(Product.category_id == category_id)
+        # ✅ Filtro por categoría (string directo)
+        if category:
+            query = query.filter(Product.category == category)
         
-        if fitness_objective:
-            query = query.filter(Product.fitness_objective == fitness_objective)
-        
+        # ✅ Filtro por actividad física (buscar en JSON array)
         if physical_activity:
-            query = query.filter(Product.physical_activity == physical_activity)
+            query = query.filter(
+                Product.physical_activities.contains([physical_activity])
+            )
+        
+        # ✅ Filtro por objetivo fitness (buscar en JSON array)
+        if fitness_objective:
+            query = query.filter(
+                Product.fitness_objectives.contains([fitness_objective])
+            )
         
         if min_price is not None:
             query = query.filter(Product.price >= min_price)
@@ -75,12 +79,12 @@ class ProductService:
         search_filter = or_(
             Product.name.ilike(f"%{query}%"),
             Product.description.ilike(f"%{query}%"),
-            Product.brand.ilike(f"%{query}%")
+            Product.brand.ilike(f"%{query}%"),
+            Product.category.ilike(f"%{query}%")  # ✅ Buscar también en categoría
         )
         
         db_query = db.query(Product).options(
-            joinedload(Product.category),
-            joinedload(Product.images)
+            joinedload(Product.product_images)
         ).filter(
             and_(Product.is_active == True, search_filter)
         )
@@ -94,8 +98,7 @@ class ProductService:
     def get_product_by_id(db: Session, product_id: int) -> Product:
         """Obtiene un producto por ID con todas sus relaciones"""
         product = db.query(Product).options(
-            joinedload(Product.category),
-            joinedload(Product.images),
+            joinedload(Product.product_images),
             joinedload(Product.reviews)
         ).filter(Product.product_id == product_id).first()
         
@@ -114,20 +117,22 @@ class ProductService:
         limit: int = 6
     ) -> List[Product]:
         """
-        Obtiene productos relacionados basados en categoría y objetivo fitness
+        Obtiene productos relacionados basados en categoría y objetivos fitness
         """
         product = ProductService.get_product_by_id(db, product_id)
         
+        # ✅ Buscar productos con la misma categoría o algún objetivo en común
         query = db.query(Product).options(
-            joinedload(Product.category),
-            joinedload(Product.images)
+            joinedload(Product.product_images)
         ).filter(
             and_(
                 Product.product_id != product_id,
                 Product.is_active == True,
                 or_(
-                    Product.category_id == product.category_id,
-                    Product.fitness_objective == product.fitness_objective
+                    Product.category == product.category,  # ✅ Comparación string directa
+                    # Buscar productos que compartan algún objetivo
+                    *[Product.fitness_objectives.contains([obj]) 
+                      for obj in product.fitness_objectives] if product.fitness_objectives else []
                 )
             )
         )
@@ -140,43 +145,20 @@ class ProductService:
         product_data: schemas.ProductCreate
     ) -> Product:
         """Crea un nuevo producto"""
-        # ✅ Verificar que la categoría existe solo si se proporciona
-        if product_data.category_id:
-            category = db.query(Category).filter(
-                Category.category_id == product_data.category_id
-            ).first()
-            
-            if not category:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Categoría no encontrada"
-                )
-        
-        # Verificar SKU único si se proporciona
-        if product_data.sku:
-            existing_product = db.query(Product).filter(
-                Product.sku == product_data.sku
-            ).first()
-            
-            if existing_product:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="El SKU ya existe"
-                )
+        # ✅ Ya no hay validación de category_id porque category es un string
         
         # Crear producto
-        product_dict = product_data.model_dump(exclude={'images'})
+        product_dict = product_data.model_dump(exclude={'product_images'})
         db_product = Product(**product_dict)
         
         db.add(db_product)
         db.flush()  # Para obtener el product_id
         
         # Agregar imágenes si las hay
-        if product_data.images:
-            for idx, img_data in enumerate(product_data.images):
+        if product_data.product_images:
+            for img_data in product_data.product_images:
                 img_dict = img_data.model_dump()
                 img_dict['product_id'] = db_product.product_id
-                img_dict['display_order'] = idx
                 
                 db_image = ProductImage(**img_dict)
                 db.add(db_image)
@@ -194,18 +176,6 @@ class ProductService:
     ) -> Product:
         """Actualiza un producto existente"""
         product = ProductService.get_product_by_id(db, product_id)
-        
-        # Verificar SKU único si se está actualizando
-        if product_data.sku and product_data.sku != product.sku:
-            existing_product = db.query(Product).filter(
-                Product.sku == product_data.sku
-            ).first()
-            
-            if existing_product:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="El SKU ya existe"
-                )
         
         # Actualizar campos
         update_data = product_data.model_dump(exclude_unset=True)
@@ -286,9 +256,6 @@ class ReviewService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ya has reseñado este producto"
             )
-        
-        # TODO: Verificar que el usuario haya comprado el producto
-        # (requiere consulta a OrderItem)
         
         # Crear reseña
         review_dict = review_data.model_dump()
@@ -376,33 +343,4 @@ class ReviewService:
         
         product = db.query(Product).filter(Product.product_id == product_id).first()
         if product:
-            product.average_rating = float(avg_rating) if avg_rating else 0.0
-
-
-class CategoryService:
-    """Servicio para gestión de categorías (solo lectura)"""
-    
-    @staticmethod
-    def get_all_categories(db: Session, is_active: Optional[bool] = True) -> List[Category]:
-        """Obtiene todas las categorías"""
-        query = db.query(Category)
-        
-        if is_active is not None:
-            query = query.filter(Category.is_active == is_active)
-        
-        return query.all()
-    
-    @staticmethod
-    def get_category_by_id(db: Session, category_id: int) -> Category:
-        """Obtiene una categoría por ID"""
-        category = db.query(Category).filter(
-            Category.category_id == category_id
-        ).first()
-        
-        if not category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Categoría no encontrada"
-            )
-        
-        return category
+            product.average_rating = float(avg_rating) if avg_rating else None  # ✅ Puede ser None
