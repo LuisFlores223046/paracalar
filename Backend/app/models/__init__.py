@@ -5,7 +5,6 @@ from .fitness_profile import FitnessProfile
 from .address import Address
 from .payment_method import PaymentMethod
 from .shopping_cart import ShoppingCart
-from .category import Category
 from .product import Product
 from .product_image import ProductImage
 from .cart_item import CartItem
@@ -33,7 +32,6 @@ __all__ = [
     "Address",
     "PaymentMethod",
     "ShoppingCart",
-    "Category",
     "Product",
     "ProductImage",
     "CartItem",

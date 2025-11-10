@@ -1,7 +1,7 @@
-from sqlalchemy import Date, Boolean, String, Numeric, Integer, ForeignKey, Enum, CheckConstraint
+from sqlalchemy import DateTime, Boolean, String, Numeric, Integer, ForeignKey, Enum, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
-from datetime import date
+from datetime import datetime, UTC
 from decimal import Decimal
 from app.core.database import Base
 from .enum import OrderStatus
@@ -19,13 +19,8 @@ class Order(Base):
 
     # Attributes
     is_subscription: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    order_date: Mapped[date] = mapped_column(Date, nullable=False)
-    order_status: Mapped[OrderStatus] = mapped_column(
-        "order_state",  # ← Nombre de columna en BD
-        Enum(OrderStatus), 
-        nullable=False, 
-        default=OrderStatus.PENDING
-    )
+    order_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC))
+    order_status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
     tracking_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0)

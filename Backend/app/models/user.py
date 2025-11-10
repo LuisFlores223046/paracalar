@@ -1,7 +1,7 @@
-from sqlalchemy import String, Boolean, ForeignKey, Enum, Date
+from sqlalchemy import String, Boolean, Date, DateTime, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import date, datetime, UTC
 from typing import Optional, List
-from datetime import date
 from app.core.database import Base
 from .enum import UserRole, AuthType, Gender
 
@@ -16,13 +16,14 @@ class User(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     auth_type: Mapped[AuthType] = mapped_column(Enum(AuthType), nullable=False)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Null si usa auth externa
-    cognito_sub: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)  # ← AGREGADO
-    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    cognito_sub: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False) # Cognito related user
+    first_name:Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     gender: Mapped[Gender] = mapped_column(Enum(Gender), nullable=False)
     date_of_birth: Mapped[date] = mapped_column(Date, nullable=False)
     profile_picture: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     account_status: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC))
         
     # Relationships
     fitness_profile: Mapped[Optional["FitnessProfile"]] = relationship("FitnessProfile", back_populates="user", cascade="all, delete-orphan", uselist=False)

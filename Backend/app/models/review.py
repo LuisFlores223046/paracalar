@@ -1,6 +1,6 @@
-from sqlalchemy import Integer, ForeignKey, Numeric, Text, Date
+from sqlalchemy import Integer, ForeignKey, Numeric, Text, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from datetime import date
+from datetime import datetime, UTC
 from typing import Optional
 from decimal import Decimal
 from app.core.database import Base
@@ -17,7 +17,8 @@ class Review(Base):
     # Attributes
     rating: Mapped[Decimal] = mapped_column(Numeric(2, 1), nullable=False)  # 1-5 star rating including halves
     review_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    date_updated: Mapped[date] = mapped_column(Date, nullable=False)
+    date_created: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
     # Relationships
     product: Mapped["Product"] = relationship("Product", back_populates="reviews")

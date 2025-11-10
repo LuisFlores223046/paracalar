@@ -12,8 +12,8 @@ class ShoppingCart(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False, unique=True)
     
     # Attributes
-    date_created: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC)) # Changed from utcnow to .now(UTC) because its deprecated
-    last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC), onupdate=datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC)) # Changed from utcnow to .now(UTC) because its deprecated
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC), onupdate=datetime.now(UTC))
     
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="shopping_cart")

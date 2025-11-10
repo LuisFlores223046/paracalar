@@ -1,5 +1,6 @@
-from sqlalchemy import Integer, ForeignKey
+from sqlalchemy import Integer, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime, UTC
 from app.core.database import Base
 
 class CartItem(Base):
@@ -12,6 +13,8 @@ class CartItem(Base):
 
     # Attributes
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    added_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
     # Relationships
     shopping_cart: Mapped["ShoppingCart"] = relationship("ShoppingCart", back_populates="cart_items")
