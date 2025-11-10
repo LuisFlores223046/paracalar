@@ -1,46 +1,56 @@
-from sqlalchemy import Integer, String, Float, ForeignKey, Enum as SQLEnum
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy import Date, Boolean, String, Numeric, Integer, ForeignKey, Enum, CheckConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
-from datetime import datetime
+from datetime import date
+from decimal import Decimal
 from app.core.database import Base
-from app.models.enum import OrderStatus
-
+from .enum import OrderStatus
 
 class Order(Base):
-    __tablename__ = "orders"
-    
-    # ============ KEYS ============
-    order_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, 
-        ForeignKey("users.user_id", ondelete="CASCADE"), 
-        nullable=False
+    __tablename__ = "order"
+
+    # Keys
+    order_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    address_id: Mapped[int] = mapped_column(ForeignKey("address.address_id", ondelete="RESTRICT"), nullable=False)
+    payment_id: Mapped[int] = mapped_column(ForeignKey("payment_method.payment_id", ondelete="RESTRICT"), nullable=False)
+    coupon_id: Mapped[Optional[int]] = mapped_column(ForeignKey("coupon.coupon_id", ondelete="SET NULL"), nullable=True)
+    subscription_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subscription.subscription_id", ondelete="SET NULL"), nullable=True)
+
+    # Attributes
+    is_subscription: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    order_date: Mapped[date] = mapped_column(Date, nullable=False)
+    order_status: Mapped[OrderStatus] = mapped_column(
+        "order_state",  # ← Nombre de columna en BD
+        Enum(OrderStatus), 
+        nullable=False, 
+        default=OrderStatus.PENDING
     )
-    
-    # ============ INFORMACIÓN DE LA ORDEN ============
-    status: Mapped[OrderStatus] = mapped_column(SQLEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
-    total_amount: Mapped[float] = mapped_column(Float, nullable=False)
-    subtotal: Mapped[float] = mapped_column(Float, nullable=False)
-    tax: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    shipping_cost: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    discount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    
-    # ============ INFORMACIÓN DE ENVÍO ============
-    shipping_address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     tracking_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    
-    # ============ CONTROL ============
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
-    
-    # ============ RELACIONES ============
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0)
+    shipping_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    points_earned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Relationships
     user: Mapped["User"] = relationship("User", back_populates="orders")
-    items: Mapped[List["OrderItem"]] = relationship(
-        "OrderItem", 
-        back_populates="order", 
-        cascade="all, delete-orphan"
+    address: Mapped["Address"] = relationship("Address", back_populates="orders")
+    payment_method: Mapped["PaymentMethod"] = relationship("PaymentMethod", back_populates="orders")
+    coupon: Mapped[Optional["Coupon"]] = relationship("Coupon", back_populates="orders")
+    subscription: Mapped[Optional["Subscription"]] = relationship("Subscription", back_populates="orders")
+    user_coupon: Mapped[Optional["UserCoupon"]] = relationship("UserCoupon", back_populates="order", uselist=False)
+    order_items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    reviews: Mapped[List["Review"]] = relationship("Review", back_populates="order", cascade="all, delete-orphan")
+    point_history: Mapped[Optional["PointHistory"]] = relationship("PointHistory", back_populates="order", uselist=False)
+
+    # Constraints
+    __table_args__ = (
+        CheckConstraint( # Ensures that if an order is by subscription, it references it
+            "(is_subscription = true AND subscription_id IS NOT NULL) OR (is_subscription = false)",
+            name="check_subscription_order"
+        ),
     )
-    
+
     def __repr__(self) -> str:
-        return f"<Order(order_id={self.order_id}, status={self.status})>"
+        return f"<Order(order_id={self.order_id}, user_id={self.user_id}, status={self.order_status}, total={self.total_amount})>"

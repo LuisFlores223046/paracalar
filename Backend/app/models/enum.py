@@ -1,30 +1,43 @@
-from enum import Enum as PyEnum
+from enum import Enum
 
-
-class UserRole(str, PyEnum):
-    """Roles de usuario en el sistema"""
-    USER = "user"
+class UserRole(str, Enum):
+    """User role enum"""
     ADMIN = "admin"
+    USER = "user"
 
-
-class Gender(str, PyEnum):
-    """Género del usuario"""
-    MALE = "M"
-    FEMALE = "F"
-    PREFER_NOT_SAY = "prefer_not_say"
-
-
-class AuthType(str, PyEnum):
-    """Tipo de autenticación del usuario"""
+class AuthType(str, Enum):
+    """Authentication type enum"""
     EMAIL = "email"
     GOOGLE = "google"
     FACEBOOK = "facebook"
 
+class Gender(str, Enum):
+    """Gender enum"""
+    MALE = "M"
+    FEMALE = "F"
+    PREFER_NOT_SAY = "prefer_not_say"
 
-class OrderStatus(str, PyEnum):
-    """Estados de las órdenes"""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
+class PaymentType(str, Enum):
+    """Payment method type enum"""
+    PAYPAL = "paypal"
+    CREDIT_CARD = "credit_card"
+    DEBIT_CARD = "debit_card"
+
+class SubscriptionStatus(str, Enum):
+    """Subscription status enum"""
+    ACTIVE = "active"
+    PAUSED = "paused"
     CANCELLED = "cancelled"
-    REFUNDED = "refunded"
+
+class OrderStatus(str, Enum):
+    """Order status enum"""
+    PENDING = "pending"
+    PAID = "paid"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+class PointEventType(str, Enum):
+    """Point history event type enum"""
+    EARNED = "earned"
+    EXPIRED = "expired"

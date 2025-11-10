@@ -1,36 +1,27 @@
-from sqlalchemy import Integer, ForeignKey, Text
+from sqlalchemy import Integer, ForeignKey, Numeric, Text, Date
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from datetime import date
 from typing import Optional
-from datetime import datetime
+from decimal import Decimal
 from app.core.database import Base
 
-
 class Review(Base):
-    __tablename__ = "reviews"
+    __tablename__ = "review"
 
-    # ============ KEYS ============
-    review_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
-    product_id: Mapped[int] = mapped_column(
-        Integer, 
-        ForeignKey("products.product_id", ondelete="CASCADE"), 
-        nullable=False
-    )
-    user_id: Mapped[int] = mapped_column(
-        Integer, 
-        ForeignKey("users.user_id", ondelete="CASCADE"), 
-        nullable=False
-    )
-    
-    # ============ ATTRIBUTES ============
-    rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5 estrellas
+    # Keys
+    review_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("product.product_id", ondelete="CASCADE"), nullable=False)
+    order_id: Mapped[int] = mapped_column(ForeignKey("order.order_id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+
+    # Attributes
+    rating: Mapped[Decimal] = mapped_column(Numeric(2, 1), nullable=False)  # 1-5 star rating including halves
     review_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    date_updated: Mapped[date] = mapped_column(Date, nullable=False)
 
-    # ============ CONTROL ============
-    date_created: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    # ============ RELACIONES ============
+    # Relationships
     product: Mapped["Product"] = relationship("Product", back_populates="reviews")
+    order: Mapped["Order"] = relationship("Order", back_populates="reviews")
     user: Mapped["User"] = relationship("User", back_populates="reviews")
 
     def __repr__(self) -> str:

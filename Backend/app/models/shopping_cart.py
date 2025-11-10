@@ -1,33 +1,23 @@
-from sqlalchemy import Integer, ForeignKey
+from sqlalchemy import ForeignKey, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from datetime import datetime, UTC
 from typing import List
-from datetime import datetime
 from app.core.database import Base
 
-
 class ShoppingCart(Base):
-    __tablename__ = "shopping_carts"
+    __tablename__ = "shopping_cart"
     
-    # ============ KEYS ============
-    cart_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, 
-        ForeignKey("users.user_id", ondelete="CASCADE"), 
-        nullable=False, 
-        unique=True
-    )
+    # Keys
+    cart_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False, unique=True)
     
-    # ============ CONTROL ============
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    # Attributes
+    date_created: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC)) # Changed from utcnow to .now(UTC) because its deprecated
+    last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC), onupdate=datetime.now(UTC))
     
-    # ============ RELACIONES ============
+    # Relationships
     user: Mapped["User"] = relationship("User", back_populates="shopping_cart")
-    items: Mapped[List["CartItem"]] = relationship(
-        "CartItem", 
-        back_populates="cart", 
-        cascade="all, delete-orphan"
-    )
+    cart_items: Mapped[List["CartItem"]] = relationship("CartItem", back_populates="shopping_cart", cascade="all, delete-orphan")
     
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"<ShoppingCart(cart_id={self.cart_id}, user_id={self.user_id})>"
