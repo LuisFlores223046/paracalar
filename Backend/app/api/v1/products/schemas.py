@@ -26,25 +26,25 @@ class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     brand: str = Field(..., min_length=1, max_length=100)
-    category: str = Field(..., min_length=1, max_length=100)  # ✅ Ahora es string directo
-    physical_activities: List[str] = Field(default_factory=list)  # ✅ JSON array
-    fitness_objectives: List[str] = Field(default_factory=list)  # ✅ JSON array
+    category: str = Field(..., min_length=1, max_length=100)
+    physical_activities: List[str] = Field(default_factory=list)
+    fitness_objectives: List[str] = Field(default_factory=list)
     nutritional_value: str
     price: float = Field(..., gt=0)
     stock: int = Field(default=0, ge=0)
 
 
 class ProductCreate(ProductBase):
-    product_images: Optional[List[ProductImageCreate]] = []  # ✅ Nombre correcto
+    product_images: Optional[List[ProductImageCreate]] = []
 
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     brand: Optional[str] = Field(None, min_length=1, max_length=100)
-    category: Optional[str] = Field(None, min_length=1, max_length=100)  # ✅ String
-    physical_activities: Optional[List[str]] = None  # ✅ JSON array
-    fitness_objectives: Optional[List[str]] = None  # ✅ JSON array
+    category: Optional[str] = Field(None, min_length=1, max_length=100)
+    physical_activities: Optional[List[str]] = None
+    fitness_objectives: Optional[List[str]] = None
     nutritional_value: Optional[str] = None
     price: Optional[float] = Field(None, gt=0)
     stock: Optional[int] = Field(None, ge=0)
@@ -57,7 +57,7 @@ class ProductResponse(ProductBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    product_images: List[ProductImageResponse] = []  # ✅ Nombre correcto
+    product_images: List[ProductImageResponse] = []
 
     class Config:
         from_attributes = True
@@ -68,7 +68,7 @@ class ProductListResponse(BaseModel):
     product_id: int
     name: str
     brand: str
-    category: str  # ✅ String directo
+    category: str
     price: float
     stock: int
     average_rating: Optional[float]
@@ -99,21 +99,7 @@ class ReviewResponse(ReviewBase):
     user_id: int
     date_created: datetime
     updated_at: datetime
-    user_name: Optional[str] = None  # Se llena en el service
+    user_name: Optional[str] = None
 
     class Config:
         from_attributes = True
-
-
-# ============ PAGINATION ============
-class PaginationParams(BaseModel):
-    page: int = Field(default=1, ge=1)
-    limit: int = Field(default=10, ge=1, le=100)
-
-
-class PaginatedResponse(BaseModel):
-    items: List[ProductListResponse]
-    total: int
-    page: int
-    limit: int
-    total_pages: int

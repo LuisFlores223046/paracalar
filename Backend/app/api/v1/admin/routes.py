@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, Form, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime
+from typing import List
+import json
 
 from app.api.deps import get_db, require_admin
 from app.api.v1.admin import schemas
-from app.api.v1.admin.service import AdminStatsService, AdminProductService, AdminReviewService
+from app.api.v1.admin.service import AdminProductService
 from app.api.v1.products import schemas as product_schemas
 from app.api.v1.products.service import ProductService
 from app.models.user import User
@@ -13,111 +13,155 @@ from app.models.user import User
 router = APIRouter()
 
 
-# ============ ESTADÍSTICAS Y DASHBOARD ============
-
-@router.get("/stats", response_model=schemas.AdminDashboardStats)
-def get_dashboard_stats(
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Obtiene todas las estadísticas para el dashboard del administrador.
-    
-    Solo accesible para usuarios con rol de administrador.
-    
-    Retorna:
-    - Estadísticas de ventas (total, órdenes, productos más vendidos)
-    - Estadísticas de usuarios (total, activos, nuevos del mes)
-    - Estadísticas de productos (total, stock bajo)
-    - Reviews pendientes de moderación
-    """
-    return AdminStatsService.get_dashboard_stats(db)
-
-
-@router.get("/reports/sales", response_model=schemas.SalesReport)
-def generate_sales_report(
-    start_date: Optional[datetime] = Query(None, description="Fecha de inicio (ISO format)"),
-    end_date: Optional[datetime] = Query(None, description="Fecha de fin (ISO format)"),
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Genera un reporte de ventas para un período específico.
-    
-    Si no se especifican fechas, genera reporte de los últimos 30 días.
-    
-    Query params:
-    - **start_date**: Fecha de inicio en formato ISO
-    - **end_date**: Fecha de fin en formato ISO
-    """
-    return AdminStatsService.generate_sales_report(db, start_date, end_date)
-
-
-@router.get("/reports/products", response_model=List[schemas.ProductReportItem])
-def generate_product_report(
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Genera un reporte de productos con métricas de ventas.
-    
-    Incluye: ventas totales, ingresos, stock actual, rating promedio por producto.
-    """
-    return AdminStatsService.get_product_report(db, start_date, end_date)
-
-
-@router.get("/products/low-stock")
-def get_low_stock_products(
-    threshold: int = Query(10, ge=1, le=100, description="Umbral de stock bajo"),
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Obtiene productos con stock bajo.
-    
-    Útil para alertas de reabastecimiento.
-    """
-    products = AdminStatsService.get_low_stock_products(db, threshold)
-    return products
-
-
 # ============ GESTIÓN DE PRODUCTOS (ADMIN) ============
 
 @router.post("/products", response_model=product_schemas.ProductResponse, status_code=status.HTTP_201_CREATED)
-def create_product(
-    product_data: product_schemas.ProductCreate,
+async def create_product(
+    name: str = Form(...),
+    description: str = Form(...),
+    brand: str = Form(...),
+    category: str = Form(...),
+    physical_activities: str = Form("[]", description="JSON array o strings separados por coma"),
+    fitness_objectives: str = Form("[]", description="JSON array o strings separados por coma"),
+    nutritional_value: str = Form(...),
+    price: float = Form(..., gt=0),
+    stock: int = Form(..., ge=0),
+    images: List[UploadFile] = File(..., description="Al menos 1 imagen es requerida"),
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
-    Crea un nuevo producto.
+    Crea un nuevo producto con sus imágenes.
     
-    Solo accesible para administradores.
+    **IMPORTANTE:** Este endpoint usa multipart/form-data, NO JSON.
     
-    Body:
-    ```json
-    {
-        "name": "Proteína Whey",
-        "description": "Proteína de suero de leche",
-        "brand": "MyBrand",
-        "category": "Proteínas",
-        "physical_activities": ["weightlifting", "crossfit"],
-        "fitness_objectives": ["muscle_gain", "recovery"],
-        "nutritional_value": "25g proteína por servida",
-        "price": 599.99,
-        "stock": 100,
-        "product_images": [
-            {
-                "image_path": "https://example.com/image.jpg",
-                "is_primary": true
-            }
-        ]
-    }
-    ```
+    **Campos requeridos:**
+    - name, description, brand, category, nutritional_value, price, stock
+    - physical_activities: 
+      * JSON: '["weightlifting", "crossfit"]' 
+      * O simple: 'weightlifting, crossfit'
+    - fitness_objectives: 
+      * JSON: '["muscle_gain", "recovery"]'
+      * O simple: 'muscle_gain, recovery'
+    - images: Al menos 1 archivo de imagen (JPEG, PNG, WEBP, max 5MB)
     """
-    return ProductService.create_product(db, product_data)
+    from app.services.s3_service import S3Service
+    from app.models.product import Product
+    from app.models.product_image import ProductImage
+    
+    # Validar que hay al menos 1 imagen
+    if not images or len(images) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes subir al menos 1 imagen del producto"
+        )
+    
+    # Función helper para parsear arrays
+    def parse_array_field(value: str, field_name: str) -> list:
+        """
+        Parsea un campo que puede ser:
+        - JSON array: '["weightlifting", "crossfit"]'
+        - String separado por comas: 'weightlifting, crossfit'
+        - String vacío: '' -> []
+        """
+        if not value or value.strip() == "":
+            return []
+        
+        value = value.strip()
+        
+        # Intentar parsear como JSON
+        if value.startswith('['):
+            try:
+                result = json.loads(value)
+                if isinstance(result, list):
+                    return result
+                else:
+                    raise ValueError(f"{field_name} debe ser un array")
+            except json.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error en {field_name}: JSON inválido. Ejemplo: '[\"weightlifting\", \"crossfit\"]'"
+                )
+        
+        # Si no es JSON, asumir que es string separado por comas
+        return [item.strip() for item in value.split(',') if item.strip()]
+    
+    # Parsear los arrays
+    try:
+        physical_activities_list = parse_array_field(physical_activities, "physical_activities")
+        fitness_objectives_list = parse_array_field(fitness_objectives, "fitness_objectives")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error procesando arrays: {str(e)}"
+        )
+    
+    # Crear el producto en la BD
+    new_product = Product(
+        name=name,
+        description=description,
+        brand=brand,
+        category=category,
+        physical_activities=physical_activities_list,
+        fitness_objectives=fitness_objectives_list,
+        nutritional_value=nutritional_value,
+        price=price,
+        stock=stock,
+        is_active=True
+    )
+    
+    db.add(new_product)
+    db.flush()  # Para obtener el product_id sin hacer commit aún
+    
+    # Subir imágenes a S3
+    s3_service = S3Service()
+    uploaded_count = 0
+    errors = []
+    
+    for idx, image_file in enumerate(images):
+        try:
+            # Leer la imagen
+            image_bytes = await image_file.read()
+            
+            # Subir a S3
+            result = s3_service.upload_product_img(
+                file_content=image_bytes,
+                product_id=str(new_product.product_id)
+            )
+            
+            if result["success"]:
+                # Guardar en la BD
+                db_image = ProductImage(
+                    product_id=new_product.product_id,
+                    image_path=result["file_url"],
+                    is_primary=(idx == 0)  # La primera imagen es primary
+                )
+                db.add(db_image)
+                uploaded_count += 1
+            else:
+                errors.append(f"Imagen {idx + 1}: {result['error']}")
+        
+        except Exception as e:
+            errors.append(f"Imagen {idx + 1}: Error - {str(e)}")
+    
+    # Si ninguna imagen se subió, revertir la creación del producto
+    if uploaded_count == 0:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No se pudo subir ninguna imagen. Errores: {', '.join(errors)}"
+        )
+    
+    # Si algunas imágenes fallaron, registrar pero continuar
+    if errors:
+        print(f"⚠️ Advertencias al subir imágenes del producto {new_product.product_id}: {errors}")
+    
+    db.commit()
+    db.refresh(new_product)
+    
+    return new_product
 
 
 @router.put("/products/{product_id}", response_model=product_schemas.ProductResponse)
@@ -147,8 +191,6 @@ def delete_product(
     
     Por defecto hace soft delete (is_active = False).
     Si hard_delete=True, elimina permanentemente de la base de datos.
-    
-    Solo accesible para administradores.
     """
     if hard_delete:
         ProductService.hard_delete_product(db, product_id)
@@ -171,70 +213,5 @@ def bulk_product_action(
     - **activate**: Activa productos
     - **deactivate**: Desactiva productos
     - **delete**: Elimina productos
-    
-    Body:
-    ```json
-    {
-        "product_ids": [1, 2, 3, 4],
-        "action": "deactivate"
-    }
-    ```
     """
     return AdminProductService.bulk_update_products(db, action_data)
-
-
-# ============ MODERACIÓN DE REVIEWS ============
-
-@router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
-def admin_delete_review(
-    review_id: int,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Elimina una reseña como administrador.
-    
-    Los administradores pueden eliminar cualquier reseña (útil para moderar contenido inapropiado).
-    """
-    from app.api.v1.products.service import ReviewService
-    
-    ReviewService.delete_review(
-        db=db,
-        review_id=review_id,
-        user_id=current_user.user_id,
-        is_admin=True
-    )
-    return None
-
-
-@router.post("/reviews/{review_id}/moderate", status_code=status.HTTP_200_OK)
-def moderate_review(
-    review_id: int,
-    action_data: schemas.ReviewModerationAction,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Modera una reseña.
-    
-    Acciones disponibles:
-    - **approve**: Aprueba la reseña
-    - **reject**: Rechaza la reseña
-    - **delete**: Elimina la reseña
-    
-    Body:
-    ```json
-    {
-        "action": "delete",
-        "reason": "Contenido inapropiado"
-    }
-    ```
-    """
-    AdminReviewService.moderate_review(db, review_id, action_data)
-    return {"message": "Reseña moderada exitosamente"}
-
-
-# ============ NOTA SOBRE CATEGORÍAS ============
-# Las categorías ahora son strings directos en Product (no hay tabla separada).
-# Para ver las categorías en uso: analizar el campo 'category' de los productos.
-# No hay endpoints de CRUD para categorías.

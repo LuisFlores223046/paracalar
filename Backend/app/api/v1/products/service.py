@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_, and_
-from typing import List, Optional, Tuple
+from sqlalchemy import func, and_, or_
+from typing import List, Optional
 from fastapi import HTTPException, status
 
 from app.models.product import Product
@@ -11,88 +11,6 @@ from app.api.v1.products import schemas
 
 class ProductService:
     """Servicio para gestión de productos"""
-    
-    @staticmethod
-    def get_all_products(
-        db: Session,
-        skip: int = 0,
-        limit: int = 10,
-        category: Optional[str] = None,  # ✅ Cambio: ahora es string
-        physical_activity: Optional[str] = None,
-        fitness_objective: Optional[str] = None,
-        min_price: Optional[float] = None,
-        max_price: Optional[float] = None,
-        is_active: bool = True
-    ) -> Tuple[List[Product], int]:
-        """
-        Obtiene todos los productos con filtros opcionales.
-        Retorna (productos, total_count)
-        """
-        query = db.query(Product).options(
-            joinedload(Product.product_images)
-        )
-        
-        # Filtros
-        if is_active is not None:
-            query = query.filter(Product.is_active == is_active)
-        
-        # ✅ Filtro por categoría (string directo)
-        if category:
-            query = query.filter(Product.category == category)
-        
-        # ✅ Filtro por actividad física (buscar en JSON array)
-        if physical_activity:
-            query = query.filter(
-                Product.physical_activities.contains([physical_activity])
-            )
-        
-        # ✅ Filtro por objetivo fitness (buscar en JSON array)
-        if fitness_objective:
-            query = query.filter(
-                Product.fitness_objectives.contains([fitness_objective])
-            )
-        
-        if min_price is not None:
-            query = query.filter(Product.price >= min_price)
-        
-        if max_price is not None:
-            query = query.filter(Product.price <= max_price)
-        
-        # Obtener total antes de paginar
-        total = query.count()
-        
-        # Paginación
-        products = query.offset(skip).limit(limit).all()
-        
-        return products, total
-    
-    @staticmethod
-    def search_products(
-        db: Session,
-        query: str,
-        skip: int = 0,
-        limit: int = 10
-    ) -> Tuple[List[Product], int]:
-        """
-        Busca productos por nombre, descripción o marca
-        """
-        search_filter = or_(
-            Product.name.ilike(f"%{query}%"),
-            Product.description.ilike(f"%{query}%"),
-            Product.brand.ilike(f"%{query}%"),
-            Product.category.ilike(f"%{query}%")  # ✅ Buscar también en categoría
-        )
-        
-        db_query = db.query(Product).options(
-            joinedload(Product.product_images)
-        ).filter(
-            and_(Product.is_active == True, search_filter)
-        )
-        
-        total = db_query.count()
-        products = db_query.offset(skip).limit(limit).all()
-        
-        return products, total
     
     @staticmethod
     def get_product_by_id(db: Session, product_id: int) -> Product:
@@ -121,7 +39,6 @@ class ProductService:
         """
         product = ProductService.get_product_by_id(db, product_id)
         
-        # ✅ Buscar productos con la misma categoría o algún objetivo en común
         query = db.query(Product).options(
             joinedload(Product.product_images)
         ).filter(
@@ -129,8 +46,7 @@ class ProductService:
                 Product.product_id != product_id,
                 Product.is_active == True,
                 or_(
-                    Product.category == product.category,  # ✅ Comparación string directa
-                    # Buscar productos que compartan algún objetivo
+                    Product.category == product.category,
                     *[Product.fitness_objectives.contains([obj]) 
                       for obj in product.fitness_objectives] if product.fitness_objectives else []
                 )
@@ -145,16 +61,12 @@ class ProductService:
         product_data: schemas.ProductCreate
     ) -> Product:
         """Crea un nuevo producto"""
-        # ✅ Ya no hay validación de category_id porque category es un string
-        
-        # Crear producto
         product_dict = product_data.model_dump(exclude={'product_images'})
         db_product = Product(**product_dict)
         
         db.add(db_product)
-        db.flush()  # Para obtener el product_id
+        db.flush()
         
-        # Agregar imágenes si las hay
         if product_data.product_images:
             for img_data in product_data.product_images:
                 img_dict = img_data.model_dump()
@@ -177,7 +89,6 @@ class ProductService:
         """Actualiza un producto existente"""
         product = ProductService.get_product_by_id(db, product_id)
         
-        # Actualizar campos
         update_data = product_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(product, field, value)
@@ -213,7 +124,7 @@ class ReviewService:
         product_id: int,
         skip: int = 0,
         limit: int = 10
-    ) -> Tuple[List[Review], int]:
+    ) -> tuple[List[Review], int]:
         """Obtiene las reseñas de un producto"""
         query = db.query(Review).options(
             joinedload(Review.user)
@@ -232,7 +143,6 @@ class ReviewService:
         review_data: schemas.ReviewCreate
     ) -> Review:
         """Crea una nueva reseña"""
-        # Verificar que el producto existe
         product = db.query(Product).filter(
             Product.product_id == product_id
         ).first()
@@ -243,7 +153,6 @@ class ReviewService:
                 detail="Producto no encontrado"
             )
         
-        # Verificar si el usuario ya ha reseñado este producto
         existing_review = db.query(Review).filter(
             and_(
                 Review.product_id == product_id,
@@ -257,7 +166,6 @@ class ReviewService:
                 detail="Ya has reseñado este producto"
             )
         
-        # Crear reseña
         review_dict = review_data.model_dump()
         review_dict['product_id'] = product_id
         review_dict['user_id'] = user_id
@@ -265,7 +173,6 @@ class ReviewService:
         db_review = Review(**review_dict)
         db.add(db_review)
         
-        # Actualizar rating promedio del producto
         ReviewService._update_product_rating(db, product_id)
         
         db.commit()
@@ -295,12 +202,10 @@ class ReviewService:
                 detail="No tienes permiso para editar esta reseña"
             )
         
-        # Actualizar campos
         update_data = review_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(review, field, value)
         
-        # Actualizar rating promedio del producto
         ReviewService._update_product_rating(db, review.product_id)
         
         db.commit()
@@ -328,7 +233,6 @@ class ReviewService:
         product_id = review.product_id
         db.delete(review)
         
-        # Actualizar rating promedio del producto
         ReviewService._update_product_rating(db, product_id)
         
         db.commit()
@@ -343,4 +247,4 @@ class ReviewService:
         
         product = db.query(Product).filter(Product.product_id == product_id).first()
         if product:
-            product.average_rating = float(avg_rating) if avg_rating else None  # ✅ Puede ser None
+            product.average_rating = float(avg_rating) if avg_rating else None
