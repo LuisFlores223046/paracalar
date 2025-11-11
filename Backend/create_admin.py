@@ -1,14 +1,16 @@
 """
 Script para crear un usuario administrador completo
 (Incluye registro en Cognito y base de datos local)
+VERSIÓN CORREGIDA - Sin campo is_verified
 """
 from app.core.database import SessionLocal
 from app.models.user import User
-from app.models.enum import UserRole, AuthType
+from app.models.enum import UserRole, AuthType, Gender
 from app.core.security import hash_password
 from app.api.v1.auth.service import cognito_service
 import boto3
 from app.config import settings
+from datetime import datetime
 
 def create_admin_user():
     """Crea un usuario administrador completo"""
@@ -16,10 +18,10 @@ def create_admin_user():
     print("🔐 Creación de Usuario Administrador\n")
     
     # Pedir datos del admin
-    email = input("Email del admin: ")
-    password = input("Contraseña (mín 8 caracteres, con mayúsculas, números y especiales): ")
-    first_name = input("Nombre: ")
-    last_name = input("Apellido: ")
+    email = input("Email del admin: ").strip()
+    password = input("Contraseña (mín 8 caracteres, con mayúsculas, números y especiales): ").strip()
+    first_name = input("Nombre: ").strip()
+    last_name = input("Apellido: ").strip()
     
     # Atributos adicionales requeridos por tu Cognito
     print("\n📝 Atributos adicionales (requeridos por tu configuración de Cognito):")
@@ -97,20 +99,16 @@ def create_admin_user():
         hashed_password = hash_password(password)
         
         # Convertir género a enum
-        from app.models.enum import Gender
-        from datetime import datetime
-        
-        gender_enum = None
-        if gender == "M":
-            gender_enum = Gender.MALE
-        elif gender == "F":
+        gender_enum = Gender.MALE
+        if gender.upper() == "F":
             gender_enum = Gender.FEMALE
-        else:
+        elif gender.upper() == "PREFER_NOT_SAY":
             gender_enum = Gender.PREFER_NOT_SAY
         
         # Convertir birthdate string a date
         birth_date_obj = datetime.strptime(birthdate, "%Y-%m-%d").date()
         
+        # ✅ CREAR USUARIO - SIN is_verified (no existe en el modelo)
         new_user = User(
             cognito_sub=cognito_sub,
             email=email,
@@ -121,9 +119,8 @@ def create_admin_user():
             date_of_birth=birth_date_obj,
             profile_picture=picture,
             auth_type=AuthType.EMAIL,
-            role=UserRole.ADMIN,  # ✅ ADMIN
-            account_status=True,
-            is_verified=True
+            role=UserRole.ADMIN,
+            account_status=True
         )
         
         db.add(new_user)
@@ -134,8 +131,11 @@ def create_admin_user():
         print(f"\n📋 Detalles:")
         print(f"   User ID: {new_user.user_id}")
         print(f"   Email: {new_user.email}")
+        print(f"   Nombre: {new_user.first_name} {new_user.last_name}")
         print(f"   Rol: {new_user.role.value}")
         print(f"   Cognito Sub: {cognito_sub}")
+        print(f"   Género: {new_user.gender.value}")
+        print(f"   Fecha de nacimiento: {new_user.date_of_birth}")
         print(f"\n🔑 Credenciales de acceso:")
         print(f"   Email: {email}")
         print(f"   Password: {password}")
@@ -143,11 +143,16 @@ def create_admin_user():
         
     except client.exceptions.UsernameExistsException:
         print(f"\n❌ El email {email} ya existe en Cognito.")
-        print("   Usa el script make_admin.py para convertir el usuario existente en admin.")
+        print("   Opciones:")
+        print("   1. Usa otro email")
+        print("   2. Si es tu usuario, ignora Cognito y créalo solo en BD local")
     
     except Exception as e:
         print(f"\n❌ Error: {str(e)}")
+        print(f"\n🔍 Tipo de error: {type(e).__name__}")
         db.rollback()
+        import traceback
+        traceback.print_exc()
     
     finally:
         db.close()
@@ -179,4 +184,31 @@ def update_cognito_role(email: str, role: str):
 
 
 if __name__ == "__main__":
+    import os
+    
+    print("\n" + "="*70)
+    print("🔐 CREACIÓN DE ADMINISTRADOR - BEFIT")
+    print("="*70)
+    
+    # Verificar directorio
+    print(f"\n📂 Directorio actual: {os.getcwd()}")
+    print(f"📂 ¿Existe befit.db?: {os.path.exists('befit.db')}")
+    
+    if not os.path.exists('befit.db'):
+        print("\n❌ ERROR: No se encuentra befit.db")
+        print("💡 Ejecuta primero: python init_db.py")
+        exit(1)
+    
+    # Verificar conexión
+    try:
+        db = SessionLocal()
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db.close()
+        print("✅ Conexión a base de datos exitosa\n")
+    except Exception as e:
+        print(f"❌ Error de conexión: {str(e)}")
+        print("💡 Ejecuta: python init_db.py")
+        exit(1)
+    
     create_admin_user()

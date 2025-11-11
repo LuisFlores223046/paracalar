@@ -81,6 +81,21 @@ def get_all_products(
     )
 
 
+@router.get("/categories", response_model=List[str])
+def get_all_categories(db: Session = Depends(get_db)):
+    """
+    Obtiene todas las categorías únicas de productos disponibles.
+    """
+    from sqlalchemy import distinct
+    from app.models.product import Product
+    
+    categories = db.query(distinct(Product.category)).filter(
+        Product.is_active == True
+    ).all()
+    
+    category_list = [cat[0] for cat in categories if cat[0]]
+    return sorted(category_list)
+
 @router.get("/search", response_model=schemas.PaginatedResponse)
 def search_products(
     query: str = Query(..., min_length=1),
@@ -270,6 +285,7 @@ def delete_review(
         user_id=current_user.user_id
     )
     return None
+
 
 
 # ============ NOTA SOBRE CATEGORÍAS ============

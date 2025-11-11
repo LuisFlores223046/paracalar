@@ -62,8 +62,8 @@ def get_cart(
         )
         
         items_response.append(item_response)
-        total_items += item.quantity
-        total_price += subtotal
+        subtotal = item.quantity * item.product.price
+        total_price += float(subtotal)
     
     return schemas.ShoppingCartResponse(
         cart_id=cart.cart_id,
@@ -225,7 +225,7 @@ def remove_item_from_cart(
     return None
 
 
-@router.delete("/clear", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/actions/clear", status_code=status.HTTP_204_NO_CONTENT)
 def clear_cart(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
