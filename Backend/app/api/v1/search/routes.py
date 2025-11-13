@@ -85,16 +85,6 @@ def search_products(
     )
 
 
-@router.get("/categories")
-def get_categories(db: Session = Depends(get_db)):
-    """
-    Obtiene todas las categorías disponibles.
-    
-    Retorna una lista de strings con las categorías únicas de productos activos.
-    """
-    return SearchService.get_available_categories(db)
-
-
 @router.get("/filters")
 def get_available_filters(db: Session = Depends(get_db)):
     """

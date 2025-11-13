@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 
 
 # ============ ESTADÍSTICAS DE PRODUCTOS ============
@@ -31,13 +31,78 @@ class UserStats(BaseModel):
     users_with_orders: int
 
 
+class SubscriptionStats(BaseModel):
+    """Estadísticas de suscripciones"""
+    total_subscriptions: int
+    active_subscriptions: int
+    paused_subscriptions: int
+    cancelled_subscriptions: int
+    new_subscriptions_this_month: int
+    subscription_revenue: float
+
+
+class TopProduct(BaseModel):
+    """Producto más vendido del momento"""
+    product_id: int
+    name: str
+    brand: str
+    category: str
+    total_sold: int
+    total_revenue: float
+    image_url: Optional[str]
+
+
+class TodaySummary(BaseModel):
+    """Resumen del día de hoy"""
+    total_sales: float
+    total_orders: int
+    total_products_sold: int
+    new_subscriptions: int
+
+
+class MonthlySalesData(BaseModel):
+    """Datos de ventas mensuales"""
+    month: str  # Formato: "2024-01" o "Enero 2024"
+    sales: float
+    orders: int
+
+
+class CategorySalesData(BaseModel):
+    """Datos de ventas por categoría"""
+    category: str
+    total_sales: float
+    total_products_sold: int
+    percentage: float
+
+
+class SubscriberGrowthData(BaseModel):
+    """Datos de crecimiento de suscriptores"""
+    month: str
+    new_subscribers: int
+    total_active: int
+
+
 class AdminDashboardStats(BaseModel):
-    """Dashboard completo del administrador"""
+    """Dashboard completo del administrador con todas las gráficas"""
+    # Resumen general
     sales: SalesStats
     users: UserStats
+    subscriptions: SubscriptionStats
+    
+    # Estadísticas básicas
     total_products: int
     low_stock_products: int
-    pending_reviews: int
+    
+    # Producto destacado
+    top_product: Optional[TopProduct]
+    
+    # Resumen de hoy
+    today_summary: TodaySummary
+    
+    # Datos para gráficas
+    monthly_sales: List[MonthlySalesData]
+    category_sales: List[CategorySalesData]
+    subscriber_growth: List[SubscriberGrowthData]
 
 
 # ============ REPORTES ============
