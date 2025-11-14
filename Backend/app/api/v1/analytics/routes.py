@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+import io, csv
 
 from app.api.deps import get_db, require_admin
 from app.api.v1.analytics import schemas
-from app.api.v1.analytics.service import AnalyticsService
+from app.api.v1.analytics.service import AnalyticsService, ReportExportService
 from app.models.user import User
 
 router = APIRouter()
@@ -77,3 +79,168 @@ def get_low_stock_products(
     """
     products = AnalyticsService.get_low_stock_products(db, threshold)
     return products
+
+@router.get("/reports/sales/export/csv")
+async def export_sales_report_csv(
+    start_date: Optional[datetime] = Query(None, description="Fecha inicial (YYYY-MM-DD)"),
+    end_date: Optional[datetime] = Query(None, description="Fecha final (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Exporta el reporte de ventas en formato CSV
+    """
+    sales_report = AnalyticsService.generate_sales_report(
+        db=db,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    csv_buffer = ReportExportService.export_sales_report_to_csv(sales_report)
+    
+    filename = f"reporte_ventas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return StreamingResponse(
+        csv_buffer,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+@router.get("/reports/sales/export/pdf")
+async def export_sales_report_pdf(
+    start_date: Optional[datetime] = Query(None, description="Fecha inicial (YYYY-MM-DD)"),
+    end_date: Optional[datetime] = Query(None, description="Fecha final (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Exporta el reporte de ventas en formato PDF
+    """
+    sales_report = AnalyticsService.generate_sales_report(
+        db=db,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    pdf_buffer = ReportExportService.export_sales_report_to_pdf(sales_report)
+    
+    filename = f"reporte_ventas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+@router.get("/reports/products/export/csv")
+async def export_product_report_csv(
+    start_date: Optional[datetime] = Query(None, description="Fecha inicial (YYYY-MM-DD)"),
+    end_date: Optional[datetime] = Query(None, description="Fecha final (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Exporta el reporte de productos en formato CSV
+    """
+    
+    products = AnalyticsService.get_product_report(
+        db=db,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    csv_buffer = ReportExportService.export_product_report_to_csv(products)
+    
+    filename = f"reporte_productos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return StreamingResponse(
+        csv_buffer,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+@router.get("/reports/products/export/pdf")
+async def export_product_report_pdf(
+    start_date: Optional[datetime] = Query(None, description="Fecha inicial (YYYY-MM-DD)"),
+    end_date: Optional[datetime] = Query(None, description="Fecha final (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Exporta el reporte de productos en formato PDF
+    """
+
+    products = AnalyticsService.get_product_report(
+        db=db,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    pdf_buffer = ReportExportService.export_product_report_to_pdf(products)
+    
+    filename = f"reporte_productos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+@router.get("/reports/low-stock/export/csv")
+async def export_low_stock_csv(
+    threshold: int = Query(10, description="Umbral de stock bajo"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Exporta el reporte de productos con stock bajo en formato CSV
+    """
+
+    # Obtener productos con stock bajo
+    products = AnalyticsService.get_low_stock_products(db, threshold)
+    
+    # Crear CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Encabezados
+    writer.writerow(['PRODUCTOS CON STOCK BAJO'])
+    writer.writerow(['Umbral', threshold])
+    writer.writerow([])
+    writer.writerow(['ID', 'Nombre', 'Stock Actual', 'Precio', 'Estado'])
+    
+    # Datos
+    for product in products:
+        writer.writerow([
+            product.product_id,
+            product.name,
+            product.stock,
+            f"${product.price:,.2f}",
+            'Activo' if product.is_active else 'Inactivo'
+        ])
+    
+    output.seek(0)
+    bytes_output = io.BytesIO(output.getvalue().encode('utf-8-sig'))
+    bytes_output.seek(0)
+    
+    filename = f"stock_bajo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return StreamingResponse(
+        bytes_output,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )

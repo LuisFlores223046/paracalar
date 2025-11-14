@@ -2,6 +2,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, extract
 from typing import List, Optional
 from datetime import datetime, timedelta, date
+import io
+import csv
+
+# Imports de reportlab - TODOS AL INICIO
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
 from app.models.product import Product
 from app.models.product_image import ProductImage
@@ -488,3 +498,218 @@ class AnalyticsService:
                 Product.stock < threshold
             )
         ).order_by(Product.stock.asc()).all()
+    
+class ReportExportService:
+    """Servicio para generación de reportes y exportación de datos"""
+    
+    @staticmethod
+    def export_sales_report_to_csv(sales_report: schemas.SalesReport) -> io.BytesIO:
+        """Exporta un reporte de ventas a CSV"""
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Encabezados del reporte
+        writer.writerow(['REPORTE DE VENTAS'])
+        writer.writerow(['Período', f"{sales_report.start_date.strftime('%Y-%m-%d')} a {sales_report.end_date.strftime('%Y-%m-%d')}"])
+        writer.writerow([])
+        
+        # Resumen
+        writer.writerow(['RESUMEN'])
+        writer.writerow(['Total Ventas', f"${sales_report.summary['total_sales']:,.2f}"])
+        writer.writerow(['Total Órdenes', sales_report.summary['total_orders']])
+        writer.writerow(['Ticket Promedio', f"${sales_report.summary['average_order_value']:,.2f}"])
+        writer.writerow(['Días en Período', sales_report.summary['days_in_period']])
+        writer.writerow([])
+        
+        # Detalle por día
+        writer.writerow(['DETALLE DIARIO'])
+        writer.writerow(['Fecha', 'Ventas Totales', 'Órdenes', 'Ticket Promedio'])
+        
+        for item in sales_report.details:
+            writer.writerow([
+                item.date.strftime('%Y-%m-%d'),
+                f"${item.total_sales:,.2f}",
+                item.total_orders,
+                f"${item.average_order_value:,.2f}"
+            ])
+        
+        output.seek(0)
+        bytes_output = io.BytesIO(output.getvalue().encode('utf-8-sig'))
+        bytes_output.seek(0)
+        
+        return bytes_output
+    
+    @staticmethod
+    def export_sales_report_to_pdf(sales_report: schemas.SalesReport) -> io.BytesIO:
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Título
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#2563eb'),
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        title = Paragraph("Reporte de Ventas", title_style)
+        elements.append(title)
+        
+        # Período
+        period_style = ParagraphStyle(
+            'Period',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.HexColor('#4b5563'),
+            alignment=TA_CENTER,
+            spaceAfter=20
+        )
+        period_text = f"{sales_report.start_date.strftime('%d/%m/%Y')} - {sales_report.end_date.strftime('%d/%m/%Y')}"
+        period = Paragraph(period_text, period_style)
+        elements.append(period)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Tabla de resumen
+        summary_data = [
+            ['RESUMEN EJECUTIVO'],
+            ['Total Ventas', f"${sales_report.summary['total_sales']:,.2f}"],
+            ['Total Órdenes', str(sales_report.summary['total_orders'])],
+            ['Ticket Promedio', f"${sales_report.summary['average_order_value']:,.2f}"],
+            ['Días Analizados', str(sales_report.summary['days_in_period'])]
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[2.5*inch, 2.5*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ]))
+        
+        elements.append(summary_table)
+        elements.append(Spacer(1, 0.5*inch))
+        
+        # Tabla de detalles
+        detail_data = [['Fecha', 'Ventas', 'Órdenes', 'Ticket Promedio']]
+        
+        for item in sales_report.details:
+            detail_data.append([
+                item.date.strftime('%d/%m/%Y'),
+                f"${item.total_sales:,.2f}",
+                str(item.total_orders),
+                f"${item.average_order_value:,.2f}"
+            ])
+        
+        detail_table = Table(detail_data, colWidths=[1.5*inch, 1.8*inch, 1.3*inch, 1.8*inch])
+        detail_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')])
+        ]))
+        
+        elements.append(detail_table)
+        
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
+    
+    @staticmethod
+    def export_product_report_to_csv(products: List[schemas.ProductReportItem]) -> io.BytesIO:
+        """Exporta un reporte de productos a CSV"""
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Encabezados
+        writer.writerow(['REPORTE DE PRODUCTOS'])
+        writer.writerow([])
+        writer.writerow(['ID', 'Nombre', 'Categoría', 'Vendidos', 'Ingresos', 'Stock', 'Rating'])
+        
+        # Datos
+        for product in products:
+            writer.writerow([
+                product.product_id,
+                product.name,
+                product.category,
+                product.total_sold,
+                f"${product.revenue:,.2f}",
+                product.current_stock,
+                f"{product.average_rating:.1f}" if product.average_rating else "N/A"
+            ])
+        
+        output.seek(0)
+        bytes_output = io.BytesIO(output.getvalue().encode('utf-8-sig'))
+        bytes_output.seek(0)
+        
+        return bytes_output
+    
+    @staticmethod
+    def export_product_report_to_pdf(products: List[schemas.ProductReportItem]) -> io.BytesIO:
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Título
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#2563eb'),
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        title = Paragraph("Reporte de Productos", title_style)
+        elements.append(title)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Tabla de productos
+        data = [['ID', 'Nombre', 'Categoría', 'Vendidos', 'Ingresos', 'Stock', 'Rating']]
+        
+        for product in products:
+            data.append([
+                str(product.product_id),
+                product.name[:30] + '...' if len(product.name) > 30 else product.name,
+                product.category,
+                str(product.total_sold),
+                f"${product.revenue:,.2f}",
+                str(product.current_stock),
+                f"{product.average_rating:.1f}" if product.average_rating else "N/A"
+            ])
+        
+        table = Table(data, colWidths=[0.5*inch, 2.5*inch, 1.3*inch, 0.9*inch, 1.2*inch, 0.8*inch, 0.8*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+        
+        elements.append(table)
+        
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
