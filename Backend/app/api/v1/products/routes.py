@@ -1,3 +1,9 @@
+# Autor: Luis Flores
+# Fecha: 13/11/2025
+# Descripción: Rutas API para gestión pública de productos y reseñas. Incluye endpoints
+#              para consultar productos, obtener productos relacionados y gestionar reseñas.
+#              La mayoría son públicos excepto crear reseñas que requiere autenticación.
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -18,7 +24,17 @@ def get_product_detail(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene los detalles completos de un producto.
+    Autor: Luis Flores
+    Descripción: Obtiene los detalles completos de un producto específico.
+                 Incluye información del producto, todas sus imágenes y reseñas.
+                 Endpoint público, no requiere autenticación.
+    Parámetros:
+        product_id (int): ID del producto a consultar.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        ProductResponse: Producto completo con imágenes y rating promedio.
+    Excepciones:
+        HTTPException 404: Si el producto no existe.
     """
     product = ProductService.get_product_by_id(db, product_id)
     return product
@@ -31,7 +47,15 @@ def get_related_products(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene productos relacionados basados en categoría y objetivos fitness.
+    Autor: Luis Flores
+    Descripción: Obtiene productos relacionados basados en categoría y objetivos fitness.
+                 Útil para mostrar recomendaciones en la página de detalle del producto.
+    Parámetros:
+        product_id (int): ID del producto de referencia.
+        limit (int): Cantidad máxima de productos relacionados a retornar (1-20).
+        db (Session): Sesión de base de datos.
+    Retorna:
+        List[ProductListResponse]: Lista de productos relacionados con información básica.
     """
     products = ProductService.get_related_products(db, product_id, limit)
     
@@ -66,7 +90,16 @@ def get_product_reviews(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene las reseñas de un producto.
+    Autor: Luis Flores
+    Descripción: Obtiene las reseñas de un producto con paginación.
+                 Las reseñas se ordenan por fecha de creación (más recientes primero).
+    Parámetros:
+        product_id (int): ID del producto.
+        page (int): Número de página (inicia en 1).
+        limit (int): Cantidad de reseñas por página (1-50).
+        db (Session): Sesión de base de datos.
+    Retorna:
+        List[ReviewResponse]: Lista de reseñas con información del usuario y rating.
     """
     skip = (page - 1) * limit
     reviews, total = ReviewService.get_product_reviews(db, product_id, skip, limit)
@@ -92,8 +125,19 @@ def create_product_review(
     db: Session = Depends(get_db)
 ):
     """
-    Crea una nueva reseña para un producto.
-    Requiere autenticación.
+    Autor: Luis Flores
+    Descripción: Crea una nueva reseña para un producto. El usuario debe estar autenticado
+                 y no puede tener una reseña previa del mismo producto.
+    Parámetros:
+        product_id (int): ID del producto a reseñar.
+        review_data (ReviewCreate): Datos de la reseña (rating y texto opcional).
+        current_user (User): Usuario autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        ReviewResponse: Reseña creada con información del usuario.
+    Excepciones:
+        HTTPException 404: Si el producto no existe.
+        HTTPException 400: Si el usuario ya reseñó este producto.
     """
     review = ReviewService.create_review(
         db=db,

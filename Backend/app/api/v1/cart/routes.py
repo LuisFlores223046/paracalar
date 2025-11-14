@@ -1,3 +1,9 @@
+# Autor: Luis Flores
+# Fecha: 13/11/2025
+# Descripción: Rutas API para gestión del carrito de compras. Incluye endpoints
+#              para obtener, agregar, actualizar, eliminar items del carrito y 
+#              validar stock disponible.
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
@@ -15,12 +21,14 @@ def get_cart(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene el carrito completo del usuario autenticado.
-    
+    Autor: Luis Flores
+    Descripción: Obtiene el carrito completo del usuario autenticado con todos
+                 sus items, información de productos y totales calculados.
+    Parámetros:
+        current_user (User): Usuario autenticado obtenido del token JWT.
+        db (Session): Sesión de base de datos.
     Retorna:
-    - Lista de items en el carrito
-    - Información de cada producto
-    - Total de items y precio total
+        ShoppingCartResponse: Carrito con lista de items, total de items y precio total.
     """
     cart = CartService.get_cart(db, current_user.user_id)
     
@@ -82,11 +90,14 @@ def get_cart_summary(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene un resumen rápido del carrito (útil para el badge del icono).
-    
+    Autor: Luis Flores
+    Descripción: Obtiene un resumen rápido del carrito con total de items y precio.
+                 Útil para mostrar en el badge del icono del carrito.
+    Parámetros:
+        current_user (User): Usuario autenticado.
+        db (Session): Sesión de base de datos.
     Retorna:
-    - Total de items
-    - Precio total
+        CartSummary: Total de items y precio total.
     """
     summary = CartService.get_cart_summary(db, current_user.user_id)
     return summary
@@ -99,18 +110,15 @@ def add_item_to_cart(
     db: Session = Depends(get_db)
 ):
     """
-    Agrega un producto al carrito.
-    
-    Si el producto ya existe en el carrito, incrementa la cantidad.
-    Verifica que haya stock suficiente antes de agregar.
-    
-    Body:
-    ```json
-    {
-        "product_id": 1,
-        "quantity": 2
-    }
-    ```
+    Autor: Luis Flores
+    Descripción: Agrega un producto al carrito del usuario. Si el producto ya existe,
+                 incrementa la cantidad. Verifica stock disponible antes de agregar.
+    Parámetros:
+        item_data (CartItemAdd): Datos del item a agregar (product_id y quantity).
+        current_user (User): Usuario autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        CartItemResponse: Item del carrito creado o actualizado con información del producto.
     """
     cart_item = CartService.add_item_to_cart(
         db=db,
@@ -158,16 +166,16 @@ def update_cart_item(
     db: Session = Depends(get_db)
 ):
     """
-    Actualiza la cantidad de un item en el carrito.
-    
-    Verifica que haya stock suficiente antes de actualizar.
-    
-    Body:
-    ```json
-    {
-        "quantity": 3
-    }
-    ```
+    Autor: Luis Flores
+    Descripción: Actualiza la cantidad de un item específico en el carrito.
+                 Verifica que haya stock suficiente antes de actualizar.
+    Parámetros:
+        cart_item_id (int): ID del item del carrito a actualizar.
+        update_data (CartItemUpdate): Nueva cantidad del item.
+        current_user (User): Usuario autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        CartItemResponse: Item del carrito actualizado con información del producto.
     """
     cart_item = CartService.update_cart_item(
         db=db,
@@ -215,7 +223,14 @@ def remove_item_from_cart(
     db: Session = Depends(get_db)
 ):
     """
-    Elimina un item del carrito.
+    Autor: Luis Flores
+    Descripción: Elimina un item específico del carrito del usuario.
+    Parámetros:
+        cart_item_id (int): ID del item del carrito a eliminar.
+        current_user (User): Usuario autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        None: Respuesta 204 No Content si la eliminación fue exitosa.
     """
     CartService.remove_item_from_cart(
         db=db,
@@ -231,9 +246,14 @@ def clear_cart(
     db: Session = Depends(get_db)
 ):
     """
-    Vacía completamente el carrito.
-    
-    Útil después de confirmar un pago o cuando el usuario quiere empezar de nuevo.
+    Autor: Luis Flores
+    Descripción: Vacía completamente el carrito del usuario, eliminando todos los items.
+                 Útil después de confirmar un pago o cuando el usuario quiere empezar de nuevo.
+    Parámetros:
+        current_user (User): Usuario autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        None: Respuesta 204 No Content si la limpieza fue exitosa.
     """
     CartService.clear_cart(db, current_user.user_id)
     return None
@@ -245,26 +265,14 @@ def validate_cart_stock(
     db: Session = Depends(get_db)
 ):
     """
-    Valida que todos los productos en el carrito tengan stock suficiente.
-    
-    Útil para llamar antes de proceder al checkout.
-    
+    Autor: Luis Flores
+    Descripción: Valida que todos los productos en el carrito tengan stock suficiente.
+                 Útil para llamar antes de proceder al checkout.
+    Parámetros:
+        current_user (User): Usuario autenticado.
+        db (Session): Sesión de base de datos.
     Retorna:
-    ```json
-    {
-        "valid": true/false,
-        "issues": [
-            {
-                "cart_item_id": 1,
-                "product_id": 5,
-                "product_name": "Producto X",
-                "issue": "Stock insuficiente",
-                "requested": 10,
-                "available": 5
-            }
-        ]
-    }
-    ```
+        dict: Resultado de validación con flag 'valid' y lista de 'issues' si existen problemas.
     """
     validation = CartService.validate_cart_stock(db, current_user.user_id)
     return validation

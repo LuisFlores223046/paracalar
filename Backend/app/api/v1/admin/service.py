@@ -1,3 +1,8 @@
+# Autor: Luis Flores
+# Fecha: 13/11/2025
+# Descripción: Servicios de lógica de negocio para operaciones administrativas.
+#              Implementa funcionalidades para gestión masiva de productos.
+
 from sqlalchemy.orm import Session
 
 from app.models.product import Product
@@ -5,7 +10,12 @@ from app.api.v1.admin import schemas
 
 
 class AdminProductService:
-    """Servicio para operaciones administrativas de productos"""
+    """
+    Autor: Luis Flores
+    Descripción: Clase de servicio para operaciones administrativas de productos.
+                 Contiene métodos estáticos para gestión masiva y operaciones
+                 que requieren permisos de administrador.
+    """
     
     @staticmethod
     def bulk_update_products(
@@ -13,7 +23,16 @@ class AdminProductService:
         action_data: schemas.BulkProductAction
     ) -> schemas.BulkActionResponse:
         """
-        Realiza operaciones en lote sobre productos
+        Autor: Luis Flores
+        Descripción: Realiza operaciones en lote sobre múltiples productos.
+                     Procesa cada producto individualmente y registra éxitos y errores.
+                     Acciones soportadas: activate, deactivate, delete.
+        Parámetros:
+            db (Session): Sesión de base de datos.
+            action_data (BulkProductAction): Contiene lista de product_ids y acción a realizar.
+        Retorna:
+            BulkActionResponse: Objeto con contadores de success y failed, 
+                                más lista de mensajes de error.
         """
         success = 0
         failed = 0

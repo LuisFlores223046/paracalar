@@ -1,3 +1,9 @@
+# Autor: Luis Flores
+# Fecha: 13/11/2025
+# Descripción: Rutas API de administración para gestión de productos. Incluye endpoints
+#              para crear, actualizar y eliminar productos, así como operaciones en lote.
+#              Todos los endpoints requieren permisos de administrador.
+
 from fastapi import APIRouter, Depends, Query, status, Form, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -31,19 +37,27 @@ async def create_product(
     db: Session = Depends(get_db)
 ):
     """
-    Crea un nuevo producto con sus imágenes.
-    
-    **IMPORTANTE:** Este endpoint usa multipart/form-data, NO JSON.
-    
-    **Campos requeridos:**
-    - name, description, brand, category, nutritional_value, price, stock
-    - physical_activities: 
-      * JSON: '["weightlifting", "crossfit"]' 
-      * O simple: 'weightlifting, crossfit'
-    - fitness_objectives: 
-      * JSON: '["muscle_gain", "recovery"]'
-      * O simple: 'muscle_gain, recovery'
-    - images: Al menos 1 archivo de imagen (JPEG, PNG, WEBP, max 5MB)
+    Autor: Luis Flores
+    Descripción: Crea un nuevo producto con sus imágenes. Este endpoint usa multipart/form-data
+                 para permitir la carga de archivos. Valida formatos de imagen y tamaños,
+                 sube las imágenes a S3 y registra el producto en la base de datos.
+    Parámetros:
+        name (str): Nombre del producto.
+        description (str): Descripción detallada.
+        brand (str): Marca del producto.
+        category (str): Categoría del producto.
+        physical_activities (str): Actividades físicas relacionadas (JSON array o CSV).
+        fitness_objectives (str): Objetivos fitness relacionados (JSON array o CSV).
+        nutritional_value (str): Información nutricional.
+        price (float): Precio del producto (mayor a 0).
+        stock (int): Cantidad en inventario (mayor o igual a 0).
+        images (List[UploadFile]): Lista de imágenes del producto (mínimo 1).
+        current_user (User): Usuario administrador autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        ProductResponse: Producto creado con todas sus relaciones.
+    Excepciones:
+        HTTPException 400: Si no se proporciona al menos 1 imagen o hay errores en los datos.
     """
     from app.services.s3_service import S3Service
     from app.models.product import Product
@@ -59,10 +73,15 @@ async def create_product(
     # Función helper para parsear arrays
     def parse_array_field(value: str, field_name: str) -> list:
         """
-        Parsea un campo que puede ser:
-        - JSON array: '["weightlifting", "crossfit"]'
-        - String separado por comas: 'weightlifting, crossfit'
-        - String vacío: '' -> []
+        Autor: Luis Flores
+        Descripción: Parsea un campo que puede ser JSON array o string separado por comas.
+        Parámetros:
+            value (str): Valor a parsear.
+            field_name (str): Nombre del campo para mensajes de error.
+        Retorna:
+            list: Lista de valores parseados.
+        Excepciones:
+            HTTPException 400: Si el formato JSON es inválido.
         """
         if not value or value.strip() == "":
             return []
@@ -172,9 +191,18 @@ def update_product(
     db: Session = Depends(get_db)
 ):
     """
-    Actualiza un producto existente.
-    
-    Solo accesible para administradores.
+    Autor: Luis Flores
+    Descripción: Actualiza un producto existente. Solo los campos proporcionados
+                 en el request serán actualizados. Requiere permisos de administrador.
+    Parámetros:
+        product_id (int): ID del producto a actualizar.
+        product_data (ProductUpdate): Datos del producto a actualizar (campos opcionales).
+        current_user (User): Usuario administrador autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        ProductResponse: Producto actualizado con todas sus relaciones.
+    Excepciones:
+        HTTPException 404: Si el producto no existe.
     """
     return ProductService.update_product(db, product_id, product_data)
 
@@ -187,10 +215,18 @@ def delete_product(
     db: Session = Depends(get_db)
 ):
     """
-    Elimina un producto.
-    
-    Por defecto hace soft delete (is_active = False).
-    Si hard_delete=True, elimina permanentemente de la base de datos.
+    Autor: Luis Flores
+    Descripción: Elimina un producto. Por defecto hace soft delete (is_active = False).
+                 Si hard_delete=True, elimina permanentemente de la base de datos.
+    Parámetros:
+        product_id (int): ID del producto a eliminar.
+        hard_delete (bool): Si es True, eliminación permanente; si es False, soft delete.
+        current_user (User): Usuario administrador autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        None: Respuesta 204 No Content si la eliminación fue exitosa.
+    Excepciones:
+        HTTPException 404: Si el producto no existe.
     """
     if hard_delete:
         ProductService.hard_delete_product(db, product_id)
@@ -207,11 +243,14 @@ def bulk_product_action(
     db: Session = Depends(get_db)
 ):
     """
-    Realiza operaciones en lote sobre productos.
-    
-    Acciones disponibles:
-    - **activate**: Activa productos
-    - **deactivate**: Desactiva productos
-    - **delete**: Elimina productos
+    Autor: Luis Flores
+    Descripción: Realiza operaciones en lote sobre múltiples productos.
+                 Acciones disponibles: activar, desactivar o eliminar productos.
+    Parámetros:
+        action_data (BulkProductAction): IDs de productos y acción a realizar.
+        current_user (User): Usuario administrador autenticado.
+        db (Session): Sesión de base de datos.
+    Retorna:
+        BulkActionResponse: Resultado con cantidad de éxitos, fallos y lista de errores.
     """
     return AdminProductService.bulk_update_products(db, action_data)
