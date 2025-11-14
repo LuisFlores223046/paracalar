@@ -6,6 +6,7 @@ from app.api.v1.admin.routes import router as admin_router
 from app.api.v1.auth.routes import router as auth_router
 from app.api.v1.search.routes import router as search_router
 from app.api.v1.analytics.routes import router as analytics_router
+from app.api.v1.user_profile.routes import router as user_profile_router
 
 # Router principal de la API v1
 api_router = APIRouter()
@@ -50,4 +51,11 @@ api_router.include_router(
     analytics_router,
     prefix="/analytics",
     tags=["Analytics & Reports"]
+)
+
+# ============ PERFIL ============
+api_router.include_router(
+    user_profile_router,
+    prefix="/profile",
+    tags=["User Profile"]
 )

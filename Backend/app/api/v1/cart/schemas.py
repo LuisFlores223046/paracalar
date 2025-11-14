@@ -23,7 +23,7 @@ class CartItemProductInfo(BaseModel):
     name: str
     price: float
     stock: int
-    image_path: Optional[str] = None  # ✅ Cambio: image_path en lugar de image_url
+    image_path: Optional[str] = None  
     brand: Optional[str] = None
 
     class Config:
@@ -31,14 +31,14 @@ class CartItemProductInfo(BaseModel):
 
 
 class CartItemResponse(BaseModel):
-    cart_item_id: int  # ✅ Nombre correcto del campo
+    cart_item_id: int  
     cart_id: int
     product_id: int
     quantity: int
     added_at: datetime
     updated_at: datetime
     product: CartItemProductInfo
-    subtotal: float  # Calculado: price * quantity
+    subtotal: float  
 
     class Config:
         from_attributes = True
@@ -49,8 +49,8 @@ class ShoppingCartResponse(BaseModel):
     cart_id: int
     user_id: int
     items: List[CartItemResponse] = []
-    total_items: int  # Suma de todas las cantidades
-    total_price: float  # Suma de todos los subtotales
+    total_items: int  
+    total_price: float 
     created_at: datetime
     updated_at: datetime
 
