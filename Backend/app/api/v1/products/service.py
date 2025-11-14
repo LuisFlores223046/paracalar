@@ -226,8 +226,9 @@ class ReviewService:
         db: Session,
         product_id: int,
         user_id: int,
-        review_data: schemas.ReviewCreate
-    ) -> Review:
+        review_data: schemas.ReviewCreate,
+        order_id: int
+) -> Review:
         """
         Autor: Luis Flores
         Descripción: Crea una nueva reseña para un producto. Verifica que el producto
@@ -270,9 +271,12 @@ class ReviewService:
         review_dict = review_data.model_dump()
         review_dict['product_id'] = product_id
         review_dict['user_id'] = user_id
+        review_dict['order_id'] = order_id
         
         db_review = Review(**review_dict)
         db.add(db_review)
+
+        db.flush()
         
         ReviewService._update_product_rating(db, product_id)
         

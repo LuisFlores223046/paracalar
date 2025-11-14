@@ -30,7 +30,7 @@ class CognitoService:
         )
         self.user_pool_id = settings.COGNITO_USER_POOL_ID
         self.client_id = settings.COGNITO_CLIENT_ID
-        self.jwks = self._get_jwks()
+        self.jwks = None
     
     def _get_jwks(self):
         """Obtiene las claves públicas de Cognito con cache"""
@@ -39,6 +39,15 @@ class CognitoService:
         if (CognitoService._jwks_cache is None or 
             CognitoService._jwks_cache_time is None or 
             now - CognitoService._jwks_cache_time > CognitoService._jwks_cache_duration):
+            
+            # --- INICIO DE NUESTRO FIX PARA PRUEBAS ---
+            # Si estamos usando el .env de prueba (region='test'), 
+            # no intentes conectar a AWS. Devuelve un JWKS falso.
+            if settings.COGNITO_REGION == 'test':
+                CognitoService._jwks_cache = {'keys': []} # Un JWKS vacío pero válido
+                CognitoService._jwks_cache_time = now
+                return CognitoService._jwks_cache
+            # --- FIN DE NUESTRO FIX PARA PRUEBAS ---
             
             jwks_url = (
                 f"https://cognito-idp.{settings.COGNITO_REGION}.amazonaws.com/"
@@ -289,6 +298,12 @@ class CognitoService:
     def verify_token(self, token: str) -> Optional[Dict]:
         """
         Verifica y decodifica un JWT token.
+        ...
+        """
+        if self.jwks is None:            # <-- AÑADE ESTA LÍNEA
+            self.jwks = self._get_jwks() # <-- Y ESTA LÍNEA
+        """
+        Verifica y decodifica un JWT token.
         
         Args:
             token: Token JWT a verificar
@@ -296,6 +311,7 @@ class CognitoService:
         Returns:
             Payload del token o None si es inválido
         """
+        
         try:
             # Decodificar el header para obtener el kid
             headers = jwt.get_unverified_header(token)
