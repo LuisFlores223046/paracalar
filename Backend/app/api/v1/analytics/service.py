@@ -1,20 +1,7 @@
-# Autor: Integración de Luis Flores y equipo
-# Fecha: 14/11/2025
-# Descripción: Servicio completo de analytics con funcionalidades de exportación a CSV y PDF
-#              Incluye generación de reportes de ventas y productos con soporte de descarga
-
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, extract
 from typing import List, Optional
 from datetime import datetime, timedelta, date
-import io
-import csv
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
 from app.models.product import Product
 from app.models.product_image import ProductImage
@@ -27,22 +14,11 @@ from app.api.v1.analytics import schemas
 
 
 class AnalyticsService:
-    """
-    Servicio para estadísticas y análisis del sistema.
-    Proporciona métricas de ventas, usuarios, productos y suscripciones.
-    """
+    """Servicio para estadísticas y análisis"""
     
     @staticmethod
     def get_dashboard_stats(db: Session) -> schemas.AdminDashboardStats:
-        """
-        Obtiene todas las estadísticas para el dashboard del administrador.
-        
-        Args:
-            db: Sesión de base de datos
-            
-        Returns:
-            AdminDashboardStats: Objeto con todas las métricas del dashboard
-        """
+        """Obtiene todas las estadísticas para el dashboard del admin"""
         sales_stats = AnalyticsService._get_sales_stats(db)
         user_stats = AnalyticsService._get_user_stats(db)
         subscription_stats = AnalyticsService._get_subscription_stats(db)
@@ -52,8 +28,13 @@ class AnalyticsService:
             and_(Product.is_active == True, Product.stock < 10)
         ).count()
         
+        # Producto más vendido
         top_product = AnalyticsService._get_top_product(db)
+        
+        # Resumen de hoy
         today_summary = AnalyticsService._get_today_summary(db)
+        
+        # Datos para gráficas
         monthly_sales = AnalyticsService._get_monthly_sales(db)
         category_sales = AnalyticsService._get_category_sales(db)
         subscriber_growth = AnalyticsService._get_subscriber_growth(db)
@@ -73,7 +54,7 @@ class AnalyticsService:
     
     @staticmethod
     def _get_sales_stats(db: Session) -> schemas.SalesStats:
-        """Obtiene estadísticas generales de ventas"""
+        """Obtiene estadísticas de ventas"""
         total_sales_query = db.query(
             func.sum(Order.total_amount).label('total'),
             func.count(Order.order_id).label('count')
@@ -117,7 +98,7 @@ class AnalyticsService:
                 total_sold=row.total_sold or 0,
                 total_revenue=float(row.total_revenue or 0),
                 average_rating=float(row.average_rating) if row.average_rating else None,
-                total_reviews=0
+                total_reviews=0  # Puedes agregar esto si tienes reviews
             ))
         
         return schemas.SalesStats(
@@ -167,6 +148,7 @@ class AnalyticsService:
             Subscription.start_date >= start_of_month.date()
         ).count()
         
+        # Calcular ingresos de suscripciones activas
         subscription_revenue = db.query(
             func.sum(Subscription.price)
         ).filter(
@@ -212,6 +194,7 @@ class AnalyticsService:
         if not top_product_query:
             return None
         
+        # Obtener imagen del producto
         product_image = db.query(ProductImage).filter(
             and_(
                 ProductImage.product_id == top_product_query.product_id,
@@ -266,10 +249,12 @@ class AnalyticsService:
         result = []
         
         for i in range(months - 1, -1, -1):
+            # Calcular fecha del mes
             target_date = datetime.now() - timedelta(days=30 * i)
             year = target_date.year
             month = target_date.month
             
+            # Query para ese mes
             monthly_data = db.query(
                 func.sum(Order.total_amount).label('sales'),
                 func.count(Order.order_id).label('orders')
@@ -281,6 +266,7 @@ class AnalyticsService:
                 )
             ).first()
             
+            # Nombre del mes en español
             month_names = [
                 "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -314,6 +300,7 @@ class AnalyticsService:
             func.sum(OrderItem.subtotal).desc()
         ).all()
         
+        # Calcular total para porcentajes
         total_sales = sum(float(row.total_sales or 0) for row in category_data)
         
         result = []
@@ -336,16 +323,19 @@ class AnalyticsService:
         result = []
         
         for i in range(months - 1, -1, -1):
+            # Calcular fecha del mes
             target_date = datetime.now() - timedelta(days=30 * i)
             year = target_date.year
             month = target_date.month
             
+            # Primer y último día del mes
             first_day = date(year, month, 1)
             if month == 12:
                 last_day = date(year + 1, 1, 1) - timedelta(days=1)
             else:
                 last_day = date(year, month + 1, 1) - timedelta(days=1)
             
+            # Nuevos suscriptores ese mes
             new_subs = db.query(Subscription).filter(
                 and_(
                     Subscription.start_date >= first_day,
@@ -353,6 +343,7 @@ class AnalyticsService:
                 )
             ).count()
             
+            # Total activos al final del mes
             total_active = db.query(Subscription).filter(
                 and_(
                     Subscription.start_date <= last_day,
@@ -360,6 +351,7 @@ class AnalyticsService:
                 )
             ).count()
             
+            # Nombre del mes
             month_names = [
                 "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -380,17 +372,7 @@ class AnalyticsService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
     ) -> schemas.SalesReport:
-        """
-        Genera un reporte de ventas para un período específico.
-        
-        Args:
-            db: Sesión de base de datos
-            start_date: Fecha de inicio (por defecto últimos 30 días)
-            end_date: Fecha de fin (por defecto hoy)
-            
-        Returns:
-            SalesReport: Reporte completo de ventas
-        """
+        """Genera un reporte de ventas para un período específico"""
         if not start_date:
             start_date = datetime.now() - timedelta(days=30)
         if not end_date:
@@ -454,17 +436,7 @@ class AnalyticsService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
     ) -> List[schemas.ProductReportItem]:
-        """
-        Genera un reporte de productos con ventas y métricas.
-        
-        Args:
-            db: Sesión de base de datos
-            start_date: Fecha de inicio (por defecto últimos 30 días)
-            end_date: Fecha de fin (por defecto hoy)
-            
-        Returns:
-            List[ProductReportItem]: Lista de productos con sus métricas
-        """
+        """Genera un reporte de productos con ventas y métricas"""
         if not start_date:
             start_date = datetime.now() - timedelta(days=30)
         if not end_date:
@@ -509,297 +481,10 @@ class AnalyticsService:
     
     @staticmethod
     def get_low_stock_products(db: Session, threshold: int = 10) -> List[Product]:
-        """
-        Obtiene productos con stock bajo.
-        
-        Args:
-            db: Sesión de base de datos
-            threshold: Umbral de stock bajo (por defecto 10)
-            
-        Returns:
-            List[Product]: Lista de productos con stock bajo
-        """
+        """Obtiene productos con stock bajo"""
         return db.query(Product).filter(
             and_(
                 Product.is_active == True,
                 Product.stock < threshold
             )
         ).order_by(Product.stock.asc()).all()
-
-
-class ReportExportService:
-    """
-    Servicio para exportación de reportes a diferentes formatos (CSV, PDF).
-    Proporciona métodos para generar archivos descargables de reportes.
-    """
-    
-    @staticmethod
-    def export_sales_report_to_csv(sales_report: schemas.SalesReport) -> io.BytesIO:
-        """
-        Exporta un reporte de ventas a formato CSV.
-        
-        Args:
-            sales_report: Reporte de ventas a exportar
-            
-        Returns:
-            BytesIO: Buffer con el contenido del archivo CSV
-        """
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        # Encabezados del reporte
-        writer.writerow(['REPORTE DE VENTAS'])
-        writer.writerow(['Período', f"{sales_report.start_date.strftime('%Y-%m-%d')} - {sales_report.end_date.strftime('%Y-%m-%d')}"])
-        writer.writerow([])
-        
-        # Resumen
-        writer.writerow(['RESUMEN'])
-        writer.writerow(['Total de Ventas', f"${sales_report.summary['total_sales']:,.2f}"])
-        writer.writerow(['Total de Pedidos', sales_report.summary['total_orders']])
-        writer.writerow(['Valor Promedio de Pedido', f"${sales_report.summary['average_order_value']:,.2f}"])
-        writer.writerow(['Días en el Período', sales_report.summary['days_in_period']])
-        writer.writerow([])
-        
-        # Detalles diarios
-        writer.writerow(['DETALLES DIARIOS'])
-        writer.writerow(['Fecha', 'Ventas Totales', 'Pedidos Totales', 'Valor Promedio'])
-        
-        for item in sales_report.details:
-            writer.writerow([
-                item.date.strftime('%Y-%m-%d'),
-                f"${item.total_sales:,.2f}",
-                item.total_orders,
-                f"${item.average_order_value:,.2f}"
-            ])
-        
-        # Convertir a bytes con encoding UTF-8
-        output.seek(0)
-        bytes_output = io.BytesIO(output.getvalue().encode('utf-8-sig'))
-        bytes_output.seek(0)
-        
-        return bytes_output
-    
-    @staticmethod
-    def export_product_report_to_csv(products: List[schemas.ProductReportItem]) -> io.BytesIO:
-        """
-        Exporta un reporte de productos a formato CSV.
-        
-        Args:
-            products: Lista de productos a exportar
-            
-        Returns:
-            BytesIO: Buffer con el contenido del archivo CSV
-        """
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        # Encabezados
-        writer.writerow(['REPORTE DE PRODUCTOS'])
-        writer.writerow([])
-        writer.writerow([
-            'ID Producto',
-            'Nombre',
-            'Categoría',
-            'Unidades Vendidas',
-            'Ingresos',
-            'Stock Actual',
-            'Rating Promedio'
-        ])
-        
-        # Datos de productos
-        for product in products:
-            writer.writerow([
-                product.product_id,
-                product.name,
-                product.category,
-                product.total_sold,
-                f"${product.revenue:,.2f}",
-                product.current_stock,
-                f"{product.average_rating:.1f}" if product.average_rating else "N/A"
-            ])
-        
-        # Convertir a bytes
-        output.seek(0)
-        bytes_output = io.BytesIO(output.getvalue().encode('utf-8-sig'))
-        bytes_output.seek(0)
-        
-        return bytes_output
-    
-    @staticmethod
-    def export_sales_report_to_pdf(sales_report: schemas.SalesReport) -> io.BytesIO:
-        """
-        Exporta un reporte de ventas a formato PDF.
-        
-        Args:
-            sales_report: Reporte de ventas a exportar
-            
-        Returns:
-            BytesIO: Buffer con el contenido del archivo PDF
-        """
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
-        elements = []
-        
-        # Estilos
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#2c3e50'),
-            spaceAfter=30,
-            alignment=TA_CENTER
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=14,
-            textColor=colors.HexColor('#34495e'),
-            spaceAfter=12,
-            spaceBefore=12
-        )
-        
-        # Título
-        elements.append(Paragraph('REPORTE DE VENTAS', title_style))
-        elements.append(Spacer(1, 0.2*inch))
-        
-        # Período
-        period_text = f"Período: {sales_report.start_date.strftime('%d/%m/%Y')} - {sales_report.end_date.strftime('%d/%m/%Y')}"
-        elements.append(Paragraph(period_text, styles['Normal']))
-        elements.append(Spacer(1, 0.3*inch))
-        
-        # Resumen
-        elements.append(Paragraph('RESUMEN EJECUTIVO', heading_style))
-        
-        summary_data = [
-            ['Métrica', 'Valor'],
-            ['Total de Ventas', f"${sales_report.summary['total_sales']:,.2f}"],
-            ['Total de Pedidos', str(sales_report.summary['total_orders'])],
-            ['Valor Promedio de Pedido', f"${sales_report.summary['average_order_value']:,.2f}"],
-            ['Días en el Período', str(sales_report.summary['days_in_period'])]
-        ]
-        
-        summary_table = Table(summary_data, colWidths=[3*inch, 3*inch])
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        
-        elements.append(summary_table)
-        elements.append(Spacer(1, 0.3*inch))
-        
-        # Detalles diarios (solo primeros 20 para no sobrecargar el PDF)
-        elements.append(Paragraph('DETALLES DIARIOS (Últimos 20 días)', heading_style))
-        
-        details_data = [['Fecha', 'Ventas', 'Pedidos', 'Promedio']]
-        for item in sales_report.details[-20:]:
-            details_data.append([
-                item.date.strftime('%d/%m/%Y'),
-                f"${item.total_sales:,.2f}",
-                str(item.total_orders),
-                f"${item.average_order_value:,.2f}"
-            ])
-        
-        details_table = Table(details_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
-        details_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#27ae60')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.lightgrey),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('FONTSIZE', (0, 1), (-1, -1), 8)
-        ]))
-        
-        elements.append(details_table)
-        
-        # Construir PDF
-        doc.build(elements)
-        buffer.seek(0)
-        
-        return buffer
-    
-    @staticmethod
-    def export_product_report_to_pdf(products: List[schemas.ProductReportItem]) -> io.BytesIO:
-        """
-        Exporta un reporte de productos a formato PDF.
-        
-        Args:
-            products: Lista de productos a exportar
-            
-        Returns:
-            BytesIO: Buffer con el contenido del archivo PDF
-        """
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        elements = []
-        
-        # Estilos
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#2c3e50'),
-            spaceAfter=30,
-            alignment=TA_CENTER
-        )
-        
-        # Título
-        elements.append(Paragraph('REPORTE DE PRODUCTOS', title_style))
-        elements.append(Spacer(1, 0.3*inch))
-        
-        # Fecha de generación
-        generation_date = f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-        elements.append(Paragraph(generation_date, styles['Normal']))
-        elements.append(Spacer(1, 0.3*inch))
-        
-        # Tabla de productos (primeros 30 para no sobrecargar)
-        products_data = [['ID', 'Nombre', 'Categoría', 'Vendidos', 'Ingresos', 'Stock', 'Rating']]
-        
-        for product in products[:30]:
-            products_data.append([
-                str(product.product_id),
-                product.name[:30] + '...' if len(product.name) > 30 else product.name,
-                product.category[:15] if product.category else 'N/A',
-                str(product.total_sold),
-                f"${product.revenue:,.0f}",
-                str(product.current_stock),
-                f"{product.average_rating:.1f}" if product.average_rating else "N/A"
-            ])
-        
-        products_table = Table(products_data, colWidths=[0.5*inch, 2*inch, 1*inch, 0.8*inch, 0.9*inch, 0.7*inch, 0.7*inch])
-        products_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e67e22')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('ALIGN', (1, 1), (1, -1), 'LEFT')
-        ]))
-        
-        elements.append(products_table)
-        
-        if len(products) > 30:
-            note = Paragraph(f"<i>Nota: Mostrando los primeros 30 de {len(products)} productos</i>", styles['Normal'])
-            elements.append(Spacer(1, 0.2*inch))
-            elements.append(note)
-        
-        # Construir PDF
-        doc.build(elements)
-        buffer.seek(0)
-        
-        return buffer
