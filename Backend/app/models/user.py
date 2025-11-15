@@ -8,15 +8,13 @@ from .enum import UserRole, AuthType, Gender
 class User(Base):
     __tablename__ = "user"
     
-    # PK
     user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    # Attributes
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.USER, nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     auth_type: Mapped[AuthType] = mapped_column(Enum(AuthType), nullable=False)
-    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Null si usa auth externa
-    cognito_sub: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False) # Cognito related user
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    cognito_sub: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     first_name:Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     gender: Mapped[Gender] = mapped_column(Enum(Gender), nullable=False)
@@ -25,7 +23,6 @@ class User(Base):
     account_status: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC))
         
-    # Relationships
     fitness_profile: Mapped[Optional["FitnessProfile"]] = relationship("FitnessProfile", back_populates="user", cascade="all, delete-orphan", uselist=False)
     addresses: Mapped[List["Address"]] = relationship("Address", back_populates="user", cascade="all, delete-orphan")
     payment_methods: Mapped[List["PaymentMethod"]] = relationship("PaymentMethod", back_populates="user", cascade="all, delete-orphan")

@@ -9,7 +9,6 @@ from .enum import OrderStatus
 class Order(Base):
     __tablename__ = "order"
 
-    # Keys
     order_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
     address_id: Mapped[int] = mapped_column(ForeignKey("address.address_id", ondelete="RESTRICT"), nullable=False)
@@ -17,7 +16,6 @@ class Order(Base):
     coupon_id: Mapped[Optional[int]] = mapped_column(ForeignKey("coupon.coupon_id", ondelete="SET NULL"), nullable=True)
     subscription_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subscription.subscription_id", ondelete="SET NULL"), nullable=True)
 
-    # Attributes
     is_subscription: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     order_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now(UTC))
     order_status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
@@ -28,7 +26,6 @@ class Order(Base):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     points_earned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    # Relationships
     user: Mapped["User"] = relationship("User", back_populates="orders")
     address: Mapped["Address"] = relationship("Address", back_populates="orders")
     payment_method: Mapped["PaymentMethod"] = relationship("PaymentMethod", back_populates="orders")
@@ -39,9 +36,8 @@ class Order(Base):
     reviews: Mapped[List["Review"]] = relationship("Review", back_populates="order", cascade="all, delete-orphan")
     point_history: Mapped[Optional["PointHistory"]] = relationship("PointHistory", back_populates="order", uselist=False)
 
-    # Constraints
     __table_args__ = (
-        CheckConstraint( # Ensures that if an order is by subscription, it references it
+        CheckConstraint(
             "(is_subscription = true AND subscription_id IS NOT NULL) OR (is_subscription = false)",
             name="check_subscription_order"
         ),

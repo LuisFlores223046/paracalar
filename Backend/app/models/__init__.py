@@ -26,7 +26,6 @@ __all__ = [
     "SubscriptionStatus",
     "OrderStatus",
     "PointEventType",
-
     "User",
     "FitnessProfile",
     "Address",

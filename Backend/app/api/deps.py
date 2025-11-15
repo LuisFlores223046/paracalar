@@ -1,3 +1,7 @@
+# Autor: Luis Flores
+# Fecha: 12/11/2025
+# Descripción: Funciones de dependencia de FastAPI para la autenticación de usuarios y verificación de roles.
+
 import os
 from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -17,10 +21,14 @@ def get_token_from_header(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ) -> str:
     """
-    Extrae el token del header Authorization.
-    
-    Raises:
-        HTTPException: Si no se proporcionan credenciales
+    Autor: Luis Flores
+    Descripción: Extrae el token del header Authorization.
+    Parámetros:
+        credentials (HTTPAuthorizationCredentials): Credenciales obtenidas del header.
+    Retorna:
+        str: El token extraído.
+    Excepciones:
+        HTTPException: Si no se proporcionan credenciales.
     """
     if not credentials or not credentials.credentials:
         raise HTTPException(
@@ -36,22 +44,18 @@ def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """
-    Dependencia para obtener el usuario actual autenticado.
-    
-    Verifica el token JWT con Cognito y obtiene el usuario de la base de datos.
-    
-    Args:
-        token: Token JWT del header Authorization
-        db: Sesión de base de datos
-        
-    Returns:
-        Usuario autenticado
-        
-    Raises:
-        HTTPException: Si el token es inválido o el usuario no existe
+    Autor: Luis Flores
+    Descripción: Dependencia para obtener el usuario actual autenticado.
+                 Verifica el token JWT con Cognito y obtiene el usuario de la base de datos.
+    Parámetros:
+        token (str): Token JWT del header Authorization (inyectado por Depends).
+        db (Session): Sesión de base de datos (inyectado por Depends).
+    Retorna:
+        User: El objeto de usuario autenticado y activo.
+    Excepciones:
+        HTTPException: Si el token es inválido, el usuario no existe o la cuenta está desactivada.
     """
 
-    
     # Verificar token con Cognito
     payload = cognito_service.verify_token(token)
     
@@ -76,7 +80,7 @@ def get_current_user(
     
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_44_NOT_FOUND,
             detail="Usuario no encontrado en la base de datos"
         )
     
@@ -94,16 +98,15 @@ def require_admin(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """
-    Dependencia que requiere que el usuario sea administrador.
-    
-    Args:
-        current_user: Usuario actual obtenido de get_current_user
-    
-    Raises:
-        HTTPException: Si el usuario no es administrador
-    
-    Returns:
-        Usuario administrador
+    Autor: Luis Flores
+    Descripción: Dependencia que requiere que el usuario actual sea administrador.
+                 En DEV_MODE, permite el acceso a cualquier usuario.
+    Parámetros:
+        current_user (User): Usuario actual obtenido de get_current_user.
+    Retorna:
+        User: El objeto de usuario (si es admin o si está en DEV_MODE).
+    Excepciones:
+        HTTPException: Si el usuario no es administrador (y no está en DEV_MODE).
     """
 
     if os.getenv("DEV_MODE") == "true":
@@ -129,18 +132,15 @@ def get_optional_user(
     db: Session = Depends(get_db)
 ) -> Optional[User]:
     """
-    Dependencia para obtener el usuario actual si está autenticado,
-    o None si no lo está.
-    
-    Útil para endpoints que funcionan tanto con usuarios autenticados
-    como no autenticados (pero con diferente comportamiento).
-    
-    Args:
-        credentials: Credenciales opcionales del header
-        db: Sesión de base de datos
-        
-    Returns:
-        Usuario autenticado o None
+    Autor: Luis Flores
+    Descripción: Dependencia para obtener el usuario actual si está autenticado,
+                 o None si no lo está. No lanza errores si falla la autenticación.
+    Parámetros:
+        credentials (Optional[HTTPAuthorizationCredentials]): Credenciales opcionales del header.
+        db (Session): Sesión de base de datos (inyectado por Depends).
+    Retorna:
+        Optional[User]: El objeto de usuario autenticado y activo, o None si no hay
+                        credenciales válidas.
     """
     if not credentials or not credentials.credentials:
         return None
