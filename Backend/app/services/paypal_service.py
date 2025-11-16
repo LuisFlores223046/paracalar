@@ -7,7 +7,7 @@ import httpx
 from app.config import settings
 from base64 import b64encode
 
-class PaypalService:
+class PayPalService:
     def __init__(self):
         # configuraciones de paypal
         self.base_url = settings.PAYPAL_API_BASE_URL # esta en sandbox
@@ -132,4 +132,4 @@ class PaypalService:
         return response.json()
     
 # instancia de uso
-paypal_service = PaypalService()
+paypal_service = PayPalService()

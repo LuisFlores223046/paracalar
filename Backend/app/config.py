@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # Se guarda como string JSON en .env y se convierte a lista
     BACKEND_CORS_ORIGINS: str = '["http://localhost:3000", "http://localhost:8000"]'
     
+    # ============ APPLICATION URL ============
+    APP_URL: str = "http://localhost:3000" 
+
     @property
     def CORS_ORIGINS(self) -> List[str]:
         """

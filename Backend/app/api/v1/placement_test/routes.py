@@ -8,6 +8,7 @@ from app.models.fitness_profile import FitnessProfile
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
+from app.api.v1.placement_test.service import prepare_profile_attributes
 
 logger = logging.getLogger(__name__)
 

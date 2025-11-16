@@ -205,3 +205,65 @@ def predict_plan(input_data: dict) -> dict:
         # Capturar cualquier error inesperado
         logger.error(f"Error inesperado en predict_plan: {str(e)}", exc_info=True)
         raise PredictionError(f"Error inesperado al procesar el test: {str(e)}")
+
+
+def get_plan_description_string(result: dict) -> str:
+    """
+    Extrae la cadena de texto de la descripción del plan del resultado.
+    
+    Argumentos:
+        result: El diccionario devuelto por predict_plan.
+    
+    Retorna:
+        La cadena de texto de la descripción.
+    """
+    plan_description_dict = result.get("description", {})
+    return plan_description_dict.get("description", "Descripción no disponible")
+
+def get_recommended_products_list(result: dict) -> list:
+    """
+    Extrae la lista de productos recomendados del plan del resultado.
+    
+    Argumentos:
+        result: El diccionario devuelto por predict_plan.
+    
+    Retorna:
+        Una lista de strings con los productos recomendados.
+    """
+    plan_description_dict = result.get("description", {})
+    products = plan_description_dict.get("recommended_products", [])
+    
+    # Asegurarse de que el retorno es una lista
+    if isinstance(products, list):
+        return products
+    return []
+
+def prepare_profile_attributes(prediction_result: dict) -> dict:
+    """
+    Combina las respuestas del test con los datos del plan (desanidados) 
+    para guardarlos en la columna JSON 'attributes' de FitnessProfile.
+    
+    Argumentos:
+        prediction_result: El diccionario devuelto por predict_plan.
+    
+    Retorna:
+        Un diccionario JSON plano listo para la columna FitnessProfile.attributes.
+    """
+    
+    # 1. Extrae los datos principales
+    test_attributes = prediction_result.get("attributes", {})
+    plan_name = prediction_result.get("recommended_plan")
+    
+    # 2. Extrae el diccionario de descripción/productos (es el valor del campo 'description' en el output)
+    plan_data_dict = prediction_result.get("description", {})
+    
+    # 3. Combina todo en un solo diccionario plano (flat dictionary)
+    profile_attributes = {
+        **test_attributes,
+        "recommended_plan": plan_name,
+        # Desanidar el diccionario "description" en sus componentes:
+        "description": plan_data_dict.get("description"), # Descripción como string
+        "recommended_products": plan_data_dict.get("recommended_products", []), # Productos como lista
+    }
+    
+    return profile_attributes
