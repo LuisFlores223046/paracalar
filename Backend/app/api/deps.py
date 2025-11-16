@@ -80,7 +80,7 @@ def get_current_user(
     
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_44_NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuario no encontrado en la base de datos"
         )
     
