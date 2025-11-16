@@ -110,12 +110,17 @@ class UserProfileService:
         """
         try:
             user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
-            
+
             if not user:
                 return {"success": False, "error": "Usuario no encontrado"}
             
             if not user.account_status:
                 return {"success": False, "error": "Cuenta inactiva"}
+            
+            old_url = user.profile_picture
+
+            if old_url:
+                self.s3_service.delete_profile_img(old_url=old_url, user_id=str(cognito_sub))
             
             # Upload new image to S3 (this will overwrite if same user_id)
             upload_result = self.s3_service.upload_profile_img(
