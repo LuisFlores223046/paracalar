@@ -6,6 +6,9 @@ from app.models.user import User
 class AddressService:
     
     def get_user_addresses(self, db: Session, cognito_sub: str) -> Dict:
+        """
+        Obtiene todas las direcciones de un usuario
+        """
         try:
             user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
             if not user or not user.account_status:
@@ -22,6 +25,9 @@ class AddressService:
             return {"success": False, "error": f"Error al obtener direcciones: {str(e)}"}
     
     def get_address_by_id(self, db: Session, cognito_sub: str, address_id: int) -> Dict:
+        """
+        Obtiene una direccion especifica del usuario
+        """
         try:
             user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
             if not user:
@@ -35,22 +41,37 @@ class AddressService:
             if not address:
                 return {"success": False, "error": "Dirección no encontrada"}
             
-            return {"success": True, "address": address}
+            return {
+                "success": True,
+                "address": address
+            }
         except Exception as e:
             return {"success": False, "error": f"Error al obtener dirección: {str(e)}"}
     
     def create_address(
-        self, db: Session, cognito_sub: str, address_name: Optional[str],
-        address_line1: str, address_line2: Optional[str], country: str,
-        state: str, city: str, zip_code: str, recipient_name: str,
-        phone_number: str, is_default: bool = False
+        self,
+        db: Session,
+        cognito_sub: str,
+        address_name: Optional[str],
+        address_line1: str,
+        address_line2: Optional[str],
+        country: str,
+        state: str,
+        city: str,
+        zip_code: str,
+        recipient_name: str,
+        phone_number: str,
+        is_default: bool = False
     ) -> Dict:
+        """
+        Crea nueva direccion 
+        """
         try:
             user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
             if not user or not user.account_status:
                 return {"success": False, "error": "Usuario no encontrado o inactivo"}
             
-            if is_default:
+            if is_default: # Checa si hay otro default para cambiarlo por este
                 db.query(Address).filter(
                     Address.user_id == user.user_id,
                     Address.is_default == True
@@ -74,19 +95,34 @@ class AddressService:
             db.commit()
             db.refresh(new_address)
             
-            return {"success": True, "message": "Dirección creada correctamente", "address": new_address}
+            return {
+                "success": True,
+                "message": "Dirección creada correctamente",
+                "address": new_address
+            }
         except Exception as e:
             db.rollback()
             return {"success": False, "error": f"Error al crear dirección: {str(e)}"}
     
     def update_address(
-        self, db: Session, cognito_sub: str, address_id: int,
-        address_name: Optional[str] = None, address_line1: Optional[str] = None,
-        address_line2: Optional[str] = None, country: Optional[str] = None,
-        state: Optional[str] = None, city: Optional[str] = None,
-        zip_code: Optional[str] = None, recipient_name: Optional[str] = None,
-        phone_number: Optional[str] = None, is_default: Optional[bool] = None
+        self,
+        db: Session,
+        cognito_sub: str,
+        address_id: int,
+        address_name: Optional[str] = None,
+        address_line1: Optional[str] = None,
+        address_line2: Optional[str] = None,
+        country: Optional[str] = None,
+        state: Optional[str] = None,
+        city: Optional[str] = None,
+        zip_code: Optional[str] = None,
+        recipient_name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        is_default: Optional[bool] = None
     ) -> Dict:
+        """
+        Actualiza una direccion existente
+        """
         try:
             user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
             if not user:
@@ -100,7 +136,7 @@ class AddressService:
             if not address:
                 return {"success": False, "error": "Dirección no encontrada"}
             
-            if is_default:
+            if is_default: # Checa y cambia default (si ya hay)
                 db.query(Address).filter(
                     Address.user_id == user.user_id,
                     Address.address_id != address_id,
@@ -131,12 +167,19 @@ class AddressService:
             db.commit()
             db.refresh(address)
             
-            return {"success": True, "message": "Dirección actualizada correctamente", "address": address}
+            return {
+                "success": True,
+                "message": "Dirección actualizada correctamente",
+                "address": address
+            }
         except Exception as e:
             db.rollback()
             return {"success": False, "error": f"Error al actualizar dirección: {str(e)}"}
     
     def delete_address(self, db: Session, cognito_sub: str, address_id: int) -> Dict:
+        """
+        Borra una direccion
+        """
         try:
             user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
             if not user:
@@ -153,12 +196,18 @@ class AddressService:
             db.delete(address)
             db.commit()
             
-            return {"success": True, "message": "Dirección eliminada correctamente"}
+            return {
+                "success": True,
+                "message": "Dirección eliminada correctamente"
+            }
         except Exception as e:
             db.rollback()
             return {"success": False, "error": f"Error al eliminar dirección: {str(e)}"}
     
     def set_default_address(self, db: Session, cognito_sub: str, address_id: int) -> Dict:
+        """
+        Hace a una direccion la seleccionada por defecto
+        """
         try:
             user = db.query(User).filter(User.cognito_sub == cognito_sub).first()
             if not user:
@@ -172,6 +221,7 @@ class AddressService:
             if not address:
                 return {"success": False, "error": "Dirección no encontrada"}
             
+            # Se asegura que el resto no esten marcadas como default
             db.query(Address).filter(
                 Address.user_id == user.user_id,
                 Address.address_id != address_id
@@ -181,7 +231,11 @@ class AddressService:
             db.commit()
             db.refresh(address)
             
-            return {"success": True, "message": "Dirección establecida como predeterminada", "address": address}
+            return {
+                "success": True,
+                "message": "Dirección establecida como predeterminada",
+                "address": address
+            }
         except Exception as e:
             db.rollback()
             return {"success": False, "error": f"Error al establecer dirección predeterminada: {str(e)}"}

@@ -1,6 +1,6 @@
 from sqlalchemy import Integer, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List
+from typing import List, Optional
 from datetime import date
 from app.core.database import Base
 
@@ -14,6 +14,7 @@ class UserLoyalty(Base):
 
     # Attributes
     total_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Current available points - can be reset
+    points_expiration_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     tier_achieved_date: Mapped[date] = mapped_column(Date, nullable=False)
     last_points_update: Mapped[date] = mapped_column(Date, nullable=False)
 
