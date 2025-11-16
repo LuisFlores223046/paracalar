@@ -12,8 +12,10 @@ from app.api.v1.orders.routes import router as orders_router
 from app.api.v1.payment_method.routes import router as payment_method_router
 from app.api.v1.payments.routes import router as payments_router
 from app.api.v1.user_profile.routes import router as user_profile_router
-from app.api.v1.shipping.routes import router as shipping_router  # ✅ AGREGAR
-from app.api.v1.placement_test.routes import router as placement_test_router  # ✅ AGREGAR
+from app.api.v1.shipping.routes import router as shipping_router 
+from app.api.v1.placement_test.routes import router as placement_test_router  
+from app.api.v1.subscriptions.routes import router as subscriptions_router
+
 
 # Router principal de la API v1
 api_router = APIRouter()
@@ -114,4 +116,11 @@ api_router.include_router(
     placement_test_router,
     prefix="/placement-test",
     tags=["Placement Test"]
+)
+
+
+api_router.include_router(
+    subscriptions_router,
+    prefix="/subscriptions",
+    tags=["Subscriptions"]
 )

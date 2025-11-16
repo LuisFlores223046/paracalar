@@ -21,6 +21,7 @@ class PaymentMethod(Base):
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="payment_methods")
     orders: Mapped[List["Order"]] = relationship("Order", back_populates="payment_method")
+    subscriptions: Mapped[List["Subscription"]] = relationship("Subscription", back_populates="payment_method")
 
     def __repr__(self) -> str:
         return f"<PaymentMethod(payment_id={self.payment_id}, type={self.payment_type}, provider_ref={self.provider_ref})>"

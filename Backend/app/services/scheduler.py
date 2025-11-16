@@ -10,6 +10,7 @@ from datetime import datetime
 import logging
 from app.core.database import SessionLocal
 from app.api.v1.loyalty.service import loyalty_service
+from app.api.v1.subscriptions.service import subscription_service
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -52,7 +53,54 @@ def expire_points_daily_job():
         logger.info("="*50)
         logger.info(f"Job de expiración finalizado\n")
 
-# Se pueden agregar mas jobs de ser necesario - de ser asi agreguenlos aqui 
+
+def process_subscriptions_daily_job():
+    """
+    Job que procesa los cobros de suscripciones diarias
+    Se ejecuta a las 00:30 todos los días
+    
+    Procesa todas las suscripciones activas que tienen fecha de cobro hoy:
+    - Realiza cobro con Stripe
+    - Crea orden automática con productos seleccionados
+    - Actualiza próxima fecha de entrega
+    - Maneja fallos de pago (pausa después de 3 intentos)
+    """
+    logger.info("="*50)
+    logger.info(f"[{datetime.now()}] Iniciando job: Procesamiento de suscripciones")
+    logger.info("="*50)
+    
+    db = get_db_session()
+    try:
+        result = subscription_service.process_due_subscriptions(db)
+        
+        if result.get("success"):
+            results_data = result.get("results", {})
+            logger.info(
+                f"Procesamiento de suscripciones completado:\n"
+                f"  - Total procesadas: {results_data.get('total_processed', 0)}\n"
+                f"  - Exitosas: {results_data.get('successful', 0)}\n"
+                f"  - Fallidas: {results_data.get('failed', 0)}"
+            )
+            
+            # Registrar errores específicos si los hay
+            if results_data.get('errors'):
+                logger.warning("Errores en suscripciones:")
+                for error in results_data['errors']:
+                    logger.warning(
+                        f"  - Subscription ID {error.get('subscription_id')} "
+                        f"(User {error.get('user_id')}): {error.get('error')}"
+                    )
+        else:
+            error_msg = result.get('error', 'Error desconocido')
+            logger.error(f"Error en procesamiento de suscripciones: {error_msg}")
+            
+    except Exception as e:
+        logger.error(f"Excepción fatal en job de suscripciones: {str(e)}", exc_info=True)
+    finally:
+        db.close()
+        logger.info("="*50)
+        logger.info(f"Job de suscripciones finalizado\n")
+
 
 # ==================== SCHEDULER ====================
 
@@ -73,26 +121,33 @@ def start_scheduler():
     logger.info("Inicializando scheduler de tareas programadas...")
     
     _scheduler = BackgroundScheduler(
-        timezone="America/Denver", # Estoy 90% segura de que este es nuestro timezone x-x
+        timezone="America/Denver",
         job_defaults={
-            'coalesce': True,  # Combina multiples ejecuciones perdidas en una sola
-            'max_instances': 1,  # Solo permite una instancia del job a la vez
-            'misfire_grace_time': 3600  # Permite 1 hora de tolerancia si se perdiu una ejecucion
+            'coalesce': True,
+            'max_instances': 1,
+            'misfire_grace_time': 3600
         }
     )
     
     # ==================== REGISTRAR JOBS ====================
     
-    # Job 1: Expiracion diaria de puntos
+    # Job 1: Expiracion diaria de puntos (00:00)
     _scheduler.add_job(
         func=expire_points_daily_job,
-        trigger=CronTrigger(hour=0, minute=0),  # Todos los dias a medianoche
+        trigger=CronTrigger(hour=0, minute=0),
         id='expire_points_daily',
         name='Expiración diaria de puntos',
         replace_existing=True
     )
     
-    # Otros jobs van aqui de la misma manera al 1
+    # Job 2: Procesamiento de suscripciones (00:30)
+    _scheduler.add_job(
+        func=process_subscriptions_daily_job,
+        trigger=CronTrigger(hour=0, minute=30),
+        id='process_subscriptions_daily',
+        name='Procesamiento diario de suscripciones',
+        replace_existing=True
+    )
     
     # Iniciar el scheduler
     _scheduler.start()
@@ -157,3 +212,11 @@ def run_expire_points_now():
     """
     logger.info("Ejecutando expiración de puntos manualmente (testing)...")
     expire_points_daily_job()
+
+def run_process_subscriptions_now():
+    """
+    Ejecuta el job de procesamiento de suscripciones inmediatamente
+    Para testing y debugging - NO prod
+    """
+    logger.info("Ejecutando procesamiento de suscripciones manualmente (testing)...")
+    process_subscriptions_daily_job()
