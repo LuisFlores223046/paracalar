@@ -1,6 +1,7 @@
-# Autor: [Tu nombre]
+# Autor: Luis Flores y Lizbeth Barajas
 # Fecha: 17/11/2025
 # Descripción: Schemas de validación y serialización para el módulo de suscripciones.
+#              Define los modelos Pydantic para request/response de la API.
 
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -12,8 +13,11 @@ from decimal import Decimal
 
 class CreateSubscriptionRequest(BaseModel):
     """
-    Schema para crear una nueva suscripción.
-    Requiere que el usuario tenga un fitness profile y un método de pago guardado.
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Schema para crear una nueva suscripción.
+                 Requiere que el usuario tenga un fitness profile y un método de pago guardado.
+    Atributos:
+        payment_method_id (int): ID del método de pago guardado a usar para los cobros recurrentes.
     """
     payment_method_id: int = Field(..., description="ID del método de pago guardado a usar")
     
@@ -28,7 +32,26 @@ class CreateSubscriptionRequest(BaseModel):
 # ============ SUBSCRIPTION RESPONSE ============
 
 class SubscriptionResponse(BaseModel):
-    """Schema de respuesta completo para una suscripción"""
+    """
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Schema de respuesta completo para una suscripción.
+                 Incluye toda la información relevante de la suscripción activa.
+    Atributos:
+        subscription_id (int): Identificador único de la suscripción.
+        user_id (int): ID del usuario propietario.
+        profile_id (int): ID del perfil fitness asociado.
+        payment_method_id (int): ID del método de pago utilizado.
+        subscription_status (str): Estado actual (active, paused, cancelled).
+        start_date (date): Fecha de inicio de la suscripción.
+        end_date (Optional[date]): Fecha de finalización, si aplica.
+        next_delivery_date (date): Próxima fecha de entrega programada.
+        auto_renew (bool): Indica si se renueva automáticamente.
+        price (Decimal): Precio mensual de la suscripción.
+        last_payment_date (Optional[date]): Fecha del último pago exitoso.
+        failed_payment_attempts (int): Número de intentos de cobro fallidos.
+        plan_name (Optional[str]): Nombre del plan fitness recomendado.
+        payment_method_last_four (Optional[str]): Últimos 4 dígitos de la tarjeta.
+    """
     subscription_id: int
     user_id: int
     profile_id: int
@@ -71,7 +94,16 @@ class SubscriptionResponse(BaseModel):
 # ============ SUBSCRIPTION SUMMARY ============
 
 class SubscriptionSummary(BaseModel):
-    """Schema simplificado con resumen de la suscripción"""
+    """
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Schema simplificado con resumen de la suscripción.
+                 Útil para mostrar información básica en headers o dashboards.
+    Atributos:
+        is_active (bool): Indica si el usuario tiene una suscripción activa.
+        subscription_status (Optional[str]): Estado de la suscripción.
+        next_delivery_date (Optional[date]): Próxima fecha de entrega.
+        price (Optional[Decimal]): Precio mensual.
+    """
     is_active: bool
     subscription_status: Optional[str] = None
     next_delivery_date: Optional[date] = None
@@ -91,7 +123,12 @@ class SubscriptionSummary(BaseModel):
 # ============ UPDATE SUBSCRIPTION ============
 
 class UpdateSubscriptionRequest(BaseModel):
-    """Schema para actualizar método de pago de la suscripción"""
+    """
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Schema para actualizar método de pago de la suscripción.
+    Atributos:
+        payment_method_id (int): Nuevo ID del método de pago a asociar.
+    """
     payment_method_id: int = Field(..., description="Nuevo ID del método de pago")
     
     class Config:
@@ -105,7 +142,14 @@ class UpdateSubscriptionRequest(BaseModel):
 # ============ GENERIC RESPONSES ============
 
 class MessageResponse(BaseModel):
-    """Respuesta genérica con mensaje"""
+    """
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Respuesta genérica con mensaje de éxito o error.
+    Atributos:
+        success (bool): Indica si la operación fue exitosa.
+        message (Optional[str]): Mensaje descriptivo de éxito.
+        error (Optional[str]): Mensaje de error si la operación falló.
+    """
     success: bool
     message: Optional[str] = None
     error: Optional[str] = None
@@ -122,7 +166,17 @@ class MessageResponse(BaseModel):
 # ============ SUBSCRIPTION HISTORY ============
 
 class SubscriptionOrderHistory(BaseModel):
-    """Schema para el historial de órdenes de suscripción"""
+    """
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Schema para el historial de órdenes de suscripción.
+                 Representa una orden individual dentro del historial.
+    Atributos:
+        order_id (int): ID único de la orden.
+        order_date (date): Fecha en que se realizó la orden.
+        total_amount (Decimal): Monto total pagado en la orden.
+        order_status (str): Estado de la orden (paid, shipped, delivered, etc).
+        tracking_number (Optional[str]): Número de rastreo del envío.
+    """
     order_id: int
     order_date: date
     total_amount: Decimal
@@ -134,7 +188,16 @@ class SubscriptionOrderHistory(BaseModel):
 
 
 class SubscriptionHistoryResponse(BaseModel):
-    """Respuesta con historial completo de órdenes de suscripción"""
+    """
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Respuesta con historial completo de órdenes de suscripción.
+                 Incluye la información de la suscripción y todas sus órdenes generadas.
+    Atributos:
+        subscription (SubscriptionResponse): Información completa de la suscripción.
+        orders (list[SubscriptionOrderHistory]): Lista de todas las órdenes generadas.
+        total_orders (int): Cantidad total de órdenes realizadas.
+        total_spent (Decimal): Monto total gastado en todas las órdenes.
+    """
     subscription: SubscriptionResponse
     orders: list[SubscriptionOrderHistory]
     total_orders: int

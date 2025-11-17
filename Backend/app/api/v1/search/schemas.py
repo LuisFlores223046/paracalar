@@ -1,7 +1,9 @@
+# Autor: Luis Flores y Lizbeth Barajas
+# Fecha: 15-11-25
+# Descripción: Esquemas Pydantic para el módulo de búsqueda
+
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime
-
 
 # ============ PRODUCT LIST RESPONSE ============
 class ProductListResponse(BaseModel):

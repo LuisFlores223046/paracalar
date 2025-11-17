@@ -1,3 +1,7 @@
+# Autor: Luis Flores y Lizbeth Barajas
+# Fecha: 15-11-25
+# Descripción: Rutas para el servicio de busqueda y filtrado
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -8,7 +12,6 @@ from app.api.v1.search import schemas
 from app.api.v1.search.service import SearchService
 
 router = APIRouter()
-
 
 @router.get("/", response_model=schemas.PaginatedResponse)
 def search_products(
@@ -24,7 +27,9 @@ def search_products(
     db: Session = Depends(get_db)
 ):
     """
-    Busca y filtra productos con múltiples criterios.
+    Autor: Luis Flores y Lizbeth Barajas
+
+    Descripción: Busca y filtra productos con múltiples criterios.
     
     **Parámetros de búsqueda:**
     - **query**: Busca en nombre, descripción, marca y categoría
@@ -88,13 +93,16 @@ def search_products(
 @router.get("/filters")
 def get_available_filters(db: Session = Depends(get_db)):
     """
-    Obtiene todos los filtros disponibles para búsqueda.
+    Autor: Lizbeth Barajas
     
+    Descripción: Obtiene todos los filtros disponibles para búsqueda.
+    
+    Parámetros: 
+        Base de datos
+        
     Retorna:
     - **categories**: Lista de categorías
     - **physical_activities**: Lista de actividades físicas
     - **fitness_objectives**: Lista de objetivos fitness
-    
-    Útil para construir interfaces de filtrado dinámicas.
     """
     return SearchService.get_available_filters(db)

@@ -192,10 +192,10 @@ if __name__ == "__main__":
     
     # Verificar directorio
     print(f"\n📂 Directorio actual: {os.getcwd()}")
-    print(f"📂 ¿Existe befit.db?: {os.path.exists('befit.db')}")
+    print(f"📂 ¿Existe app.db?: {os.path.exists('app.db')}")
     
-    if not os.path.exists('befit.db'):
-        print("\n❌ ERROR: No se encuentra befit.db")
+    if not os.path.exists('app.db'):
+        print("\n❌ ERROR: No se encuentra app.db")
         print("💡 Ejecuta primero: python init_db.py")
         exit(1)
     

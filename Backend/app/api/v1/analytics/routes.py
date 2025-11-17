@@ -1,17 +1,21 @@
+# Autor: Gabriel Vilchis
+# Fecha 14/11/2025
+# Descripcion: Este codigo define los endopints de la API para la gestion de analiticas, reportes
+# y exportacion de datos para el dashboard adminsitrativo. Todos los endopints requieren autenticacion
+# y el rol de administrador
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-import io, csv
-
-from app.api.deps import get_db, require_admin
+from app.api.deps import require_admin
 from app.api.v1.analytics import schemas
 from app.api.v1.analytics.service import AnalyticsService, ReportExportService
 from app.models.user import User
+from app.api.deps import get_db, require_admin
+import io, csv
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
-
 
 @router.get("/dashboard", response_model=schemas.AdminDashboardStats)
 def get_dashboard_stats(
@@ -19,8 +23,8 @@ def get_dashboard_stats(
     db: Session = Depends(get_db)
 ):
     """
+    Autor: Gabriel Vilchis
     Obtiene todas las estadísticas para el dashboard del administrador.
-    
     Solo accesible para usuarios con rol de administrador.
     
     Retorna:
@@ -40,8 +44,8 @@ def generate_sales_report(
     db: Session = Depends(get_db)
 ):
     """
+    Autor: Gabriel Vilchis
     Genera un reporte de ventas para un período específico.
-    
     Si no se especifican fechas, genera reporte de los últimos 30 días.
     
     Query params:
@@ -59,6 +63,7 @@ def generate_product_report(
     db: Session = Depends(get_db)
 ):
     """
+    Autor: Gabriel Vilchis
     Genera un reporte de productos con métricas de ventas.
     
     Incluye: ventas totales, ingresos, stock actual, rating promedio por producto.
@@ -73,9 +78,8 @@ def get_low_stock_products(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene productos con stock bajo.
-    
-    Útil para alertas de reabastecimiento.
+    Autor: Gabriel Vilchis
+    Obtiene productos con stock bajo. Útil para alertas de reabastecimiento.
     """
     products = AnalyticsService.get_low_stock_products(db, threshold)
     return products
@@ -88,6 +92,7 @@ async def export_sales_report_csv(
     current_user: User = Depends(require_admin)
 ):
     """
+    Autor: Gabriel Vilchis
     Exporta el reporte de ventas en formato CSV
     """
     sales_report = AnalyticsService.generate_sales_report(
@@ -117,6 +122,7 @@ async def export_sales_report_pdf(
     current_user: User = Depends(require_admin)
 ):
     """
+    Autor: Gabriel Vilchis
     Exporta el reporte de ventas en formato PDF
     """
     sales_report = AnalyticsService.generate_sales_report(
@@ -146,6 +152,7 @@ async def export_product_report_csv(
     current_user: User = Depends(require_admin)
 ):
     """
+    Autor: Gabriel Vilchis
     Exporta el reporte de productos en formato CSV
     """
     
@@ -176,6 +183,7 @@ async def export_product_report_pdf(
     current_user: User = Depends(require_admin)
 ):
     """
+    Autor: Gabriel Vilchis
     Exporta el reporte de productos en formato PDF
     """
 
@@ -205,6 +213,7 @@ async def export_low_stock_csv(
     current_user: User = Depends(require_admin)
 ):
     """
+    Autor: Gabriel Vilchis
     Exporta el reporte de productos con stock bajo en formato CSV
     """
 

@@ -1,11 +1,12 @@
-# Autor: Luis & Gabriel
-# Fecha: 16/11/2025
+# Autor: Gabriel Vilchis
+# Fecha: 09/11/2025
 # Descripción:
-# Configuración centralizada usando Pydantic Settings para variables de entorno.
-# Gestiona parámetros de AWS Cognito, S3, base de datos, Stripe, PayPal y CORS.
+# Este archivo define la clase Settings utilizando Pydantic Settings para la carga
+# y gestión centralizada de variables de entorno provenientes del archivo .env.
+# Su propósito es centralizar parámetros sensibles y configuraciones relacionadas
+# con la base de datos, AWS, Cognito, S3, JWT, Stripe y PayPal.
 
 import os
-import json
 from typing import Optional, List
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
@@ -40,8 +41,7 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str  # Obligatorio
     
     # ============ JWT ============
-    # Si usan Cognito para auth, pueden dejar JWT_SECRET_KEY como opcional
-    JWT_SECRET_KEY: Optional[str] = None
+    JWT_SECRET_KEY: str  # Obligatorio para compatibilidad
     JWT_ALGORITHM: str = "RS256"  # RS256 para Cognito, HS256 para JWT manual
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
@@ -56,52 +56,56 @@ class Settings(BaseSettings):
     PAYPAL_API_BASE_URL: str  # Obligatorio
     
     # ============ CORS ============
-    # Se guarda como string JSON en .env y se convierte a lista
-    BACKEND_CORS_ORIGINS: str = '["http://localhost:3000", "http://localhost:8000"]'
-    
-    # ============ APPLICATION URL ============
-    APP_URL: str = "http://localhost:3000" 
-
-    @property
-    def CORS_ORIGINS(self) -> List[str]:
-        """
-        Convierte el string JSON de CORS_ORIGINS a una lista de strings.
-        Permite configurar CORS desde el .env de forma flexible.
-        """
-        try:
-            return json.loads(self.BACKEND_CORS_ORIGINS)
-        except json.JSONDecodeError:
-            # Fallback en caso de error
-            return ["http://localhost:3000", "http://localhost:8000"]
+    #BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000"]
+    BACKEND_CORS_ORIGINS: List[str] = []
+    APP_URL: str # "https://frontend.d34s9corpodswj.amplifyapp.com"
+     # En lugar de se el local host, debe de ser la url del frontend para que funcione las redirecciones
+    # de success y cancel
+    #APP_URL: str = "http://localhost:8000"
+    #APP_URL: str = "https://frontend.d34s9corpodswj.amplifyapp.com/"
     
     class Config:
         env_file = ".env"
         case_sensitive = True
-        extra = "ignore"  # Ignora variables extras en el .env
         
     def print_debug_info(self):
         """
         Método para imprimir información de debug SOLO en desarrollo.
         NO llamar en producción por seguridad.
+        
+        Uso: Establece DEBUG=True en .env para activar
         """
         if self.DEBUG:
-            print("=" * 50)
-            print("CONFIGURACIÓN DE DEBUG")
-            print("=" * 50)
+            print("CONFIGURACIÓN DE DEBUG - BeFit API")
             print(f"App Name: {self.APP_NAME}")
             print(f"Version: {self.APP_VERSION}")
-            print(f"Database URL: {self.DATABASE_URL}")
+            print(f"App URL: {self.APP_URL}")
+            print(f"CORS Origins: {self.BACKEND_CORS_ORIGINS}")
+            print("\n--- AWS Configuración ---")
             print(f"AWS Region: {self.AWS_REGION}")
-            print(f"Cognito Region: {self.COGNITO_REGION}")
-            print(f"Cognito User Pool ID: {self.COGNITO_USER_POOL_ID}")
-            print(f"Cognito Client ID: {self.COGNITO_CLIENT_ID}")
             print(f"S3 Bucket: {self.S3_BUCKET_NAME}")
+            print(f"AWS Access Key configurada: {'✓' if self.AWS_ACCESS_KEY_ID else '✗'}")
+            print(f"AWS Secret Key configurada: {'✓' if self.AWS_SECRET_ACCESS_KEY else '✗'}")
+            print("\n--- Cognito Configuración ---")
+            print(f"Cognito Region: {self.COGNITO_REGION}")
+            print(f"User Pool ID: {self.COGNITO_USER_POOL_ID}")
+            print(f"Client ID: {self.COGNITO_CLIENT_ID}")
+            print("\n--- JWT Configuración ---")
             print(f"JWT Algorithm: {self.JWT_ALGORITHM}")
-            print(f"CORS Origins: {self.CORS_ORIGINS}")
-            # NO imprimir keys secretas por seguridad
+            print(f"Token Expire (min): {self.JWT_ACCESS_TOKEN_EXPIRE_MINUTES}")
+            print(f"JWT Secret Key configurada: {'✓' if self.JWT_SECRET_KEY else '✗'}")
+            print("\n--- Pagos Configuración ---")
             print(f"Stripe API Key configurada: {'✓' if self.STRIPE_API_KEY else '✗'}")
+            print(f"Stripe Secret Key configurada: {'✓' if self.STRIPE_SECRET_KEY else '✗'}")
+            print(f"Stripe Webhook Secret configurada: {'✓' if self.STRIPE_WEBHOOK_SECRET else '✗'}")
             print(f"PayPal Client ID configurada: {'✓' if self.PAYPAL_CLIENT_ID else '✗'}")
-            print("=" * 50)
+            print(f"PayPal Client Secret configurada: {'✓' if self.PAYPAL_CLIENT_SECRET else '✗'}")
+            print(f"PayPal API URL: {self.PAYPAL_API_BASE_URL}")
+            print("\n--- Base de Datos ---")
+            # Mostrar solo el inicio de la URL por seguridad
+            db_preview = self.DATABASE_URL[:30] + "..." if len(self.DATABASE_URL) > 30 else self.DATABASE_URL
+            print(f"Database URL: {db_preview}")
+            print("RECUERDA: Desactiva DEBUG en producción")
 
 
 # Instancia global de configuración

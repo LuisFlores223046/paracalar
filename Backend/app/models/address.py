@@ -6,9 +6,11 @@ from app.core.database import Base
 class Address(Base):
     __tablename__ = "address"
 
+    # Keys
     address_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False, index=True)
 
+    # Attributes
     address_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     address_line1: Mapped[str] = mapped_column(String(255), nullable=False)
     address_line2: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -20,6 +22,7 @@ class Address(Base):
     phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # Relationships
     user: Mapped["User"] = relationship("User", back_populates="addresses")
     orders: Mapped[List["Order"]] = relationship("Order", back_populates="address")
 

@@ -1,4 +1,12 @@
+# Autor: Gabriel Vilchis
+# Fecha: 08/11/2025
+# Descripción:
+# Este archivo define dos funciones relacionadas con la seguridad de contraseñas
+# utilizando la librería bcrypt. Permite generar hashes seguros y verificar si
+# una contraseña ingresada coincide con su hash almacenado.
 import bcrypt 
+
+# Esta  funcion hashea una contraseña en texto plano usando bcrypt
 
 
 def hash_password(password: str) -> str:

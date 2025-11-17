@@ -16,7 +16,7 @@ class FitnessProfile(Base):
     attributes: Mapped[dict] = mapped_column(JSON, nullable=False)
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="fitness_profile")
+    user: Mapped["User"] = relationship("User", back_populates="fitness_profile", lazy="noload")
     subscription: Mapped[Optional["Subscription"]] = relationship("Subscription", back_populates="fitness_profile", uselist=False)
 
     def __repr__(self) -> str:

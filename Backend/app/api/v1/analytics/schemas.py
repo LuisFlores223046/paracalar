@@ -1,11 +1,14 @@
+# Autor: Gabriel Vilchis
+# Fecha 14/11/2025
+# Descripcion: Este codigo define los esquemas (schemas) de Pydantic utilizados para la
+# validación de datos de entrada y la estructura de las respuestas (payloads)
+# en los endpoints de analíticas, reportes y métricas del dashboard administrativo.
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import datetime
 
-
-# ============ ESTADÍSTICAS DE PRODUCTOS ============
+# Estadisticas de productos
 class ProductStats(BaseModel):
-    """Estadísticas de un producto"""
     product_id: int
     name: str
     total_sold: int
@@ -13,36 +16,14 @@ class ProductStats(BaseModel):
     average_rating: Optional[float]
     total_reviews: int
 
-
 class SalesStats(BaseModel):
-    """Estadísticas generales de ventas"""
     total_sales: float
     total_orders: int
     total_products_sold: int
     average_order_value: float
     top_selling_products: List[ProductStats]
 
-
-class UserStats(BaseModel):
-    """Estadísticas de usuarios"""
-    total_users: int
-    active_users: int
-    new_users_this_month: int
-    users_with_orders: int
-
-
-class SubscriptionStats(BaseModel):
-    """Estadísticas de suscripciones"""
-    total_subscriptions: int
-    active_subscriptions: int
-    paused_subscriptions: int
-    cancelled_subscriptions: int
-    new_subscriptions_this_month: int
-    subscription_revenue: float
-
-
 class TopProduct(BaseModel):
-    """Producto más vendido del momento"""
     product_id: int
     name: str
     brand: str
@@ -51,45 +32,51 @@ class TopProduct(BaseModel):
     total_revenue: float
     image_url: Optional[str]
 
+# Estadisticas de usuarios
+class UserStats(BaseModel):
+    total_users: int
+    active_users: int
+    new_users_this_month: int
+    users_with_orders: int
 
+class SubscriptionStats(BaseModel):
+    total_subscriptions: int
+    active_subscriptions: int
+    paused_subscriptions: int
+    cancelled_subscriptions: int
+    new_subscriptions_this_month: int
+    subscription_revenue: float
+
+# Estadisticas generales
 class TodaySummary(BaseModel):
-    """Resumen del día de hoy"""
     total_sales: float
     total_orders: int
     total_products_sold: int
     new_subscriptions: int
 
-
 class MonthlySalesData(BaseModel):
-    """Datos de ventas mensuales"""
     month: str  # Formato: "2024-01" o "Enero 2024"
     sales: float
     orders: int
 
-
 class CategorySalesData(BaseModel):
-    """Datos de ventas por categoría"""
     category: str
     total_sales: float
     total_products_sold: int
     percentage: float
 
-
 class SubscriberGrowthData(BaseModel):
-    """Datos de crecimiento de suscriptores"""
     month: str
     new_subscribers: int
     total_active: int
 
-
+# Dashboard completo del admin con todas las graficas
 class AdminDashboardStats(BaseModel):
-    """Dashboard completo del administrador con todas las gráficas"""
-    # Resumen general
     sales: SalesStats
     users: UserStats
     subscriptions: SubscriptionStats
     
-    # Estadísticas básicas
+    # Estadisticas basicas
     total_products: int
     low_stock_products: int
     
@@ -104,8 +91,7 @@ class AdminDashboardStats(BaseModel):
     category_sales: List[CategorySalesData]
     subscriber_growth: List[SubscriberGrowthData]
 
-
-# ============ REPORTES ============
+# Reportes
 class ReportParams(BaseModel):
     """Parámetros para generar reportes"""
     start_date: Optional[datetime] = None
@@ -113,14 +99,12 @@ class ReportParams(BaseModel):
     report_type: str = Field(..., pattern="^(sales|products|users)$")
     format: str = Field(default="json", pattern="^(json|csv)$")
 
-
 class SalesReportItem(BaseModel):
     """Item de reporte de ventas"""
     date: datetime
     total_sales: float
     total_orders: int
     average_order_value: float
-
 
 class ProductReportItem(BaseModel):
     """Item de reporte de productos"""
@@ -131,7 +115,6 @@ class ProductReportItem(BaseModel):
     revenue: float
     current_stock: int
     average_rating: Optional[float]
-
 
 class SalesReport(BaseModel):
     """Reporte completo de ventas"""

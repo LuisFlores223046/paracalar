@@ -1,3 +1,8 @@
+# Autor: Luis Flores y Lizbeth Barajas
+# Fecha: 15/11/25
+# Descripción: Servicio para búsqueda avanzada y filtrado de productos, incluyendo categorías,
+#              actividades físicas, objetivos fitness, rangos de precio y combinación de filtros.
+
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, and_
 from typing import List, Optional, Tuple
@@ -24,9 +29,29 @@ class SearchService:
         is_active: bool = True
     ) -> Tuple[List[Product], int]:
         """
-        Busca y filtra productos con múltiples criterios.
-        Retorna (productos, total_count)
+        Autor: Luis Flores y Lizbeth Barajas
+
+        Descripción:
+            Realiza una búsqueda avanzada de productos aplicando múltiples filtros como texto,
+            categoría, actividad física, objetivos fitness, rango de precios y estado de actividad.
+            Incluye paginación y devuelve el total sin paginar.
+
+        Parámetros:
+            db (Session): Sesión activa de la base de datos.
+            query (str | None): Texto de búsqueda para nombre, descripción, marca o categoría.
+            skip (int): Número de registros a omitir para paginación.
+            limit (int): Número máximo de registros a devolver.
+            category (str | None): Categoría específica a filtrar.
+            physical_activity (str | None): Actividad física asociada al producto.
+            fitness_objective (str | None): Objetivo fitness asociado al producto.
+            min_price (float | None): Precio mínimo permitido.
+            max_price (float | None): Precio máximo permitido.
+            is_active (bool): Estado del producto (activo/inactivo).
+
+        Retorna:
+            Tuple[List[Product], int]: Lista de productos filtrados y total de coincidencias.
         """
+
         db_query = db.query(Product).options(
             joinedload(Product.product_images)
         )
@@ -67,6 +92,9 @@ class SearchService:
         
         if max_price is not None:
             db_query = db_query.filter(Product.price <= max_price)
+
+        if min_price and max_price and min_price > max_price:
+            raise HTTPException(400, "min_price no puede ser mayor que max_price")
         
         # Obtener total antes de paginar
         total = db_query.count()
@@ -78,7 +106,19 @@ class SearchService:
     
     @staticmethod
     def get_available_categories(db: Session) -> List[str]:
-        """Obtiene todas las categorías únicas de productos activos"""
+        """
+        Autor: Lizbeth Barajas
+
+        Descripción:
+            Obtiene todas las categorías disponibles entre los productos activos,
+            eliminando duplicados y regresando el listado ordenado.
+
+        Parámetros:
+            db (Session): Sesión activa de la base de datos.
+
+        Retorna:
+            List[str]: Lista ordenada de categorías únicas.
+        """
         from sqlalchemy import distinct
         
         categories = db.query(distinct(Product.category)).filter(
@@ -91,8 +131,19 @@ class SearchService:
     @staticmethod
     def get_available_filters(db: Session) -> dict:
         """
-        Obtiene todos los filtros disponibles (categorías, actividades, objetivos)
+        Autor: Lizbeth Barajas
+
+        Descripción:
+            Obtiene los filtros dinámicos disponibles para productos activos, incluyendo categorías,
+            actividades físicas y objetivos fitness. Los resultados son únicos y ordenados.
+
+        Parámetros:
+            db (Session): Sesión activa de la base de datos.
+
+        Retorna:
+            dict: Diccionario con listas de categorías, actividades físicas y objetivos fitness.
         """
+
         # Categorías
         categories = SearchService.get_available_categories(db)
         

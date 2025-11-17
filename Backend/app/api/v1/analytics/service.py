@@ -1,10 +1,14 @@
+# Autor: Gabriel Vilchis
+# Fecha 14/11/2025
+# Descripcion:
+# Este codigo contiene la lógica de negocio (servicios) para obtener y calcular
+# todas las métricas, estadísticas y reportes utilizados en el dashboard administrativo
+# y los endpoints de analíticas. Utiliza SQLAlchemy para interactuar con la base de datos.
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, extract
 from typing import List, Optional
 from datetime import datetime, timedelta, date
-import io
-import csv
-
+import io, csv
 # Imports de reportlab - TODOS AL INICIO
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
@@ -12,7 +16,6 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
-
 from app.models.product import Product
 from app.models.product_image import ProductImage
 from app.models.order import Order
@@ -22,13 +25,23 @@ from app.models.subscription import Subscription
 from app.models.enum import OrderStatus, SubscriptionStatus
 from app.api.v1.analytics import schemas
 
-
 class AnalyticsService:
-    """Servicio para estadísticas y análisis"""
-    
+    """
+    Autor: Gabriel Vilchis
+    Esta clase de servicio encapsula la logica de negocio para la obtencion y el calculo de 
+    estadisticas y reportes de la tienda, utilizando consultas SQLAlchemy
+    """
     @staticmethod
     def get_dashboard_stats(db: Session) -> schemas.AdminDashboardStats:
-        """Obtiene todas las estadísticas para el dashboard del admin"""
+        """
+        Autor: Gabriel Vilchis
+        Obtiene todas las estadísticas para el dashboard del admin
+        Args:
+            db: Sesión de SQLAlchemy para la conexión a la base de datos.
+
+        Returns:
+            AdminDashboardStats: Un objeto AdminDashboardStats con todas las mé
+        """
         sales_stats = AnalyticsService._get_sales_stats(db)
         user_stats = AnalyticsService._get_user_stats(db)
         subscription_stats = AnalyticsService._get_subscription_stats(db)
@@ -64,7 +77,16 @@ class AnalyticsService:
     
     @staticmethod
     def _get_sales_stats(db: Session) -> schemas.SalesStats:
-        """Obtiene estadísticas de ventas"""
+        """
+        Autor: Gabriel Vilchis
+        Método auxiliar para calcular las métricas globales de ventas y el top 10 de productos vendidos.
+
+        Args:
+            db: Sesión de SQLAlchemy.
+
+        Returns:
+            SalesStats: Un objeto SalesStats con los totales de ventas, órdenes y el top de productos.
+        """
         total_sales_query = db.query(
             func.sum(Order.total_amount).label('total'),
             func.count(Order.order_id).label('count')
@@ -121,7 +143,16 @@ class AnalyticsService:
     
     @staticmethod
     def _get_user_stats(db: Session) -> schemas.UserStats:
-        """Obtiene estadísticas de usuarios"""
+        """
+        Autor: Gabriel Vilchis
+        Método auxiliar para calcular las métricas clave de la base de usuarios.
+
+        Args:
+            db: Sesión de SQLAlchemy.
+
+        Returns:
+            UserStats: Un objeto UserStats con el total de usuarios, activos, nuevos del mes y con órdenes.
+        """
         total_users = db.query(User).count()
         active_users = db.query(User).filter(User.account_status == True).count()
         
@@ -141,7 +172,20 @@ class AnalyticsService:
     
     @staticmethod
     def _get_subscription_stats(db: Session) -> schemas.SubscriptionStats:
-        """Obtiene estadísticas de suscripciones"""
+        """
+        Autor: Gabriel Vilchis
+        Obtiene y calcula las métricas principales relacionadas con las
+        suscripciones de la plataforma.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy para ejecutar consultas a la base de datos.
+
+        Returns:
+            SubscriptionStats: Objeto que contiene el total de suscripciones,
+            suscripciones activas, pausadas, canceladas, nuevas del mes y
+            los ingresos generados por suscripciones activas.
+        """
+
         total_subs = db.query(Subscription).count()
         active_subs = db.query(Subscription).filter(
             Subscription.subscription_status == SubscriptionStatus.ACTIVE
@@ -176,7 +220,18 @@ class AnalyticsService:
     
     @staticmethod
     def _get_top_product(db: Session) -> Optional[schemas.TopProduct]:
-        """Obtiene el producto más vendido del momento (últimos 30 días)"""
+        """
+        Autor: Gabriel Vilchis
+        Obtiene el producto más vendido en los últimos 30 días,
+        incluyendo cantidad vendida, ingresos generados e imagen principal.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy para operaciones de consulta.
+
+        Returns:
+            Optional[TopProduct]: Información del producto más vendido.
+            Retorna None si no hay registros de ventas recientes.
+        """
         thirty_days_ago = datetime.now() - timedelta(days=30)
         
         top_product_query = db.query(
@@ -226,7 +281,18 @@ class AnalyticsService:
     
     @staticmethod
     def _get_today_summary(db: Session) -> schemas.TodaySummary:
-        """Obtiene el resumen del día de hoy"""
+        """
+        Autor: Gabriel Vilchis
+        Genera un resumen de métricas correspondientes al día actual,
+        incluyendo ventas, órdenes, productos vendidos y nuevas suscripciones.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy.
+
+        Returns:
+            TodaySummary: Objeto con ventas totales del día, número de órdenes,
+            productos vendidos y suscripciones nuevas.
+        """
         today = date.today()
         
         today_orders = db.query(
@@ -255,7 +321,17 @@ class AnalyticsService:
     
     @staticmethod
     def _get_monthly_sales(db: Session, months: int = 6) -> List[schemas.MonthlySalesData]:
-        """Obtiene ventas mensuales de los últimos N meses"""
+        """
+        Autor: Gabriel Vilchis
+        Calcula las ventas y número de órdenes para los últimos N meses.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy.
+            months (int, opcional): Cantidad de meses a analizar. Default = 6.
+
+        Returns:
+            List[MonthlySalesData]: Lista con los registros mensuales de ventas y órdenes.
+        """
         result = []
         
         for i in range(months - 1, -1, -1):
@@ -293,7 +369,17 @@ class AnalyticsService:
     
     @staticmethod
     def _get_category_sales(db: Session) -> List[schemas.CategorySalesData]:
-        """Obtiene ventas por categoría"""
+        """
+        Autor: Gabriel Vilchis
+        Obtiene las ventas agrupadas por categoría, incluyendo ingresos,
+        cantidad de productos vendidos y porcentaje sobre el total de ventas.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy.
+
+        Returns:
+            List[CategorySalesData]: Lista de categorías con métricas calculadas.
+        """
         category_data = db.query(
             Product.category,
             func.sum(OrderItem.subtotal).label('total_sales'),
@@ -329,7 +415,18 @@ class AnalyticsService:
     
     @staticmethod
     def _get_subscriber_growth(db: Session, months: int = 6) -> List[schemas.SubscriberGrowthData]:
-        """Obtiene crecimiento de suscriptores por mes"""
+        """
+        Autor: Gabriel Vilchis
+        Calcula el crecimiento mensual de suscriptores para los últimos N meses,
+        incluyendo nuevos suscriptores y total de activos.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy.
+            months (int, opcional): Cantidad de meses a considerar. Default = 6.
+
+        Returns:
+            List[SubscriberGrowthData]: Lista con datos de crecimiento de suscriptores.
+        """
         result = []
         
         for i in range(months - 1, -1, -1):
@@ -382,7 +479,20 @@ class AnalyticsService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
     ) -> schemas.SalesReport:
-        """Genera un reporte de ventas para un período específico"""
+        """
+        Autor: Gabriel Vilchis
+        Genera un reporte detallado de ventas dentro de un período específico,
+        incluyendo resumen estadístico y ventas por día.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy.
+            start_date (datetime, opcional): Fecha inicial del período. Si no se
+                proporciona, se toman los últimos 30 días.
+            end_date (datetime, opcional): Fecha final del período. Default = fecha actual.
+
+        Returns:
+            SalesReport: Reporte completo con resumen y detalle diario.
+        """
         if not start_date:
             start_date = datetime.now() - timedelta(days=30)
         if not end_date:
@@ -446,7 +556,19 @@ class AnalyticsService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
     ) -> List[schemas.ProductReportItem]:
-        """Genera un reporte de productos con ventas y métricas"""
+        """
+        Autor: Gabriel Vilchis
+        Genera un reporte de productos que muestra ventas, ingresos, stock actual
+        y calificación promedio dentro del período solicitado.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy.
+            start_date (datetime, opcional): Inicio del rango del reporte.
+            end_date (datetime, opcional): Fin del rango del reporte.
+
+        Returns:
+            List[ProductReportItem]: Lista con métricas por producto.
+        """
         if not start_date:
             start_date = datetime.now() - timedelta(days=30)
         if not end_date:
@@ -491,7 +613,18 @@ class AnalyticsService:
     
     @staticmethod
     def get_low_stock_products(db: Session, threshold: int = 10) -> List[Product]:
-        """Obtiene productos con stock bajo"""
+        """
+        Autor: Gabriel Vilchis
+        Obtiene los productos cuyo inventario está por debajo del umbral definido.
+
+        Args:
+            db (Session): Sesión de SQLAlchemy.
+            threshold (int, opcional): Valor mínimo de stock para considerar un producto
+                como bajo en inventario. Default = 10.
+
+        Returns:
+            List[Product]: Lista de productos con stock por debajo del umbral.
+        """
         return db.query(Product).filter(
             and_(
                 Product.is_active == True,
@@ -504,8 +637,17 @@ class ReportExportService:
     
     @staticmethod
     def export_sales_report_to_csv(sales_report: schemas.SalesReport) -> io.BytesIO:
-        """Exporta un reporte de ventas a CSV"""
-        
+        """
+        Autor: Gabriel Vilchis
+        Exporta un reporte de ventas al formato CSV, incluyendo el encabezado,
+        resumen ejecutivo y el detalle diario.
+
+        Args:
+            sales_report (SalesReport): Objeto con la información del reporte.
+
+        Returns:
+            BytesIO: Archivo CSV en memoria listo para descargar o enviar.
+        """
         output = io.StringIO()
         writer = csv.writer(output)
         
@@ -542,7 +684,17 @@ class ReportExportService:
     
     @staticmethod
     def export_sales_report_to_pdf(sales_report: schemas.SalesReport) -> io.BytesIO:
-        
+        """
+        Autor: Gabriel Vilchis
+        Genera un archivo PDF estilizado con el contenido del reporte de ventas,
+        incluyendo título, período, resumen y tabla detallada.
+
+        Args:
+            sales_report (SalesReport): Reporte a exportar en PDF.
+
+        Returns:
+            BytesIO: Archivo PDF generado en memoria.
+        """
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         elements = []
@@ -631,8 +783,17 @@ class ReportExportService:
     
     @staticmethod
     def export_product_report_to_csv(products: List[schemas.ProductReportItem]) -> io.BytesIO:
-        """Exporta un reporte de productos a CSV"""
-        
+        """
+        Autor: Gabriel Vilchis
+        Exporta un reporte de ventas al formato CSV, incluyendo el encabezado,
+        resumen ejecutivo y el detalle diario.
+
+        Args:
+            sales_report (SalesReport): Objeto con la información del reporte.
+
+        Returns:
+            BytesIO: Archivo CSV en memoria listo para descargar o enviar.
+        """
         output = io.StringIO()
         writer = csv.writer(output)
         
@@ -661,7 +822,17 @@ class ReportExportService:
     
     @staticmethod
     def export_product_report_to_pdf(products: List[schemas.ProductReportItem]) -> io.BytesIO:
-        
+        """
+        Autor: Gabriel Vilchis
+        Genera un archivo PDF estilizado con el contenido del reporte de ventas,
+        incluyendo título, período, resumen y tabla detallada.
+
+        Args:
+            sales_report (SalesReport): Reporte a exportar en PDF.
+
+        Returns:
+            BytesIO: Archivo PDF generado en memoria.
+        """
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
         elements = []

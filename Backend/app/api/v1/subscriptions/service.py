@@ -1,4 +1,4 @@
-# Autor: [Tu nombre]
+# Autor: Luis Flores y Lizbeth Barajas
 # Fecha: 17/11/2025
 # Descripción: Servicio de lógica de negocio para gestión de suscripciones,
 #              cobros recurrentes, selección de productos y manejo de estados.
@@ -23,7 +23,9 @@ from app.services.stripe_service import stripe_service
 
 class SubscriptionService:
     """
-    Servicio para gestión completa de suscripciones mensuales
+    Autor: Luis Flores y Lizbeth Barajas
+    Descripción: Servicio para gestión completa de suscripciones mensuales.
+                 Maneja creación, actualización, pausado, cancelación y cobros automáticos.
     """
     
     # Precio fijo mensual de la suscripción
@@ -36,8 +38,17 @@ class SubscriptionService:
         payment_method_id: int
     ) -> Dict:
         """
-        Crea una nueva suscripción para un usuario.
-        Requiere que el usuario tenga un fitness profile y un método de pago válido.
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Crea una nueva suscripción para un usuario.
+                     Requiere que el usuario tenga un fitness profile y un método de pago válido.
+                     Realiza el primer cobro inmediatamente al crear la suscripción.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            user_id (int): ID del usuario que solicita la suscripción.
+            payment_method_id (int): ID del método de pago guardado a utilizar.
+        Retorna:
+            Dict: Diccionario con success, message, subscription y first_order_id si fue exitoso.
+                  En caso de error retorna success=False y error con el mensaje.
         """
         try:
             # Verificar que el usuario existe y está activo
@@ -124,7 +135,16 @@ class SubscriptionService:
     
     @staticmethod
     def get_user_subscription(db: Session, user_id: int) -> Dict:
-        """Obtiene la suscripción activa del usuario"""
+        """
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Obtiene la suscripción activa o existente del usuario.
+                     Incluye información adicional como nombre del plan y últimos 4 dígitos de la tarjeta.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            user_id (int): ID del usuario del cual se consulta la suscripción.
+        Retorna:
+            Dict: Diccionario con success, has_subscription, subscription, plan_name y payment_last_four.
+        """
         try:
             subscription = db.query(Subscription).filter(
                 Subscription.user_id == user_id
@@ -159,7 +179,16 @@ class SubscriptionService:
     
     @staticmethod
     def pause_subscription(db: Session, user_id: int) -> Dict:
-        """Pausa una suscripción activa"""
+        """
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Pausa una suscripción activa del usuario.
+                     Durante el pausado no se realizarán cobros ni envíos.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            user_id (int): ID del usuario cuya suscripción se pausará.
+        Retorna:
+            Dict: Diccionario con success, message y subscription si fue exitoso.
+        """
         try:
             subscription = db.query(Subscription).filter(
                 and_(
@@ -187,7 +216,15 @@ class SubscriptionService:
     
     @staticmethod
     def resume_subscription(db: Session, user_id: int) -> Dict:
-        """Reanuda una suscripción pausada"""
+        """
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Reanuda una suscripción pausada, reactivando el ciclo de cobros y envíos.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            user_id (int): ID del usuario cuya suscripción se reanudará.
+        Retorna:
+            Dict: Diccionario con success, message y subscription si fue exitoso.
+        """
         try:
             subscription = db.query(Subscription).filter(
                 and_(
@@ -200,9 +237,6 @@ class SubscriptionService:
                 return {"success": False, "error": "No se encontró suscripción pausada"}
             
             subscription.subscription_status = SubscriptionStatus.ACTIVE
-            # Resetear intentos fallidos al reanudar
-            subscription.failed_payment_attempts = 0
-            
             db.commit()
             db.refresh(subscription)
             
@@ -218,13 +252,20 @@ class SubscriptionService:
     
     @staticmethod
     def cancel_subscription(db: Session, user_id: int) -> Dict:
-        """Cancela una suscripción"""
+        """
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Cancela permanentemente una suscripción del usuario.
+                     Esta acción es definitiva y requiere crear una nueva suscripción para reactivar.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            user_id (int): ID del usuario cuya suscripción se cancelará.
+        Retorna:
+            Dict: Diccionario con success y message indicando el resultado de la operación.
+        """
         try:
             subscription = db.query(Subscription).filter(
-                and_(
-                    Subscription.user_id == user_id,
-                    Subscription.subscription_status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED])
-                )
+                Subscription.user_id == user_id,
+                Subscription.subscription_status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED])
             ).first()
             
             if not subscription:
@@ -253,17 +294,28 @@ class SubscriptionService:
         user_id: int,
         new_payment_method_id: int
     ) -> Dict:
-        """Actualiza el método de pago de la suscripción"""
+        """
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Actualiza el método de pago asociado a una suscripción activa.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            user_id (int): ID del usuario propietario de la suscripción.
+            new_payment_method_id (int): ID del nuevo método de pago a asociar.
+        Retorna:
+            Dict: Diccionario con success y message indicando el resultado.
+        """
         try:
+            # Obtener suscripción activa
             subscription = db.query(Subscription).filter(
-                Subscription.user_id == user_id
+                Subscription.user_id == user_id,
+                Subscription.subscription_status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED])
             ).first()
             
             if not subscription:
-                return {"success": False, "error": "No se encontró suscripción"}
+                return {"success": False, "error": "No se encontró suscripción activa"}
             
             # Verificar que el nuevo método de pago existe y pertenece al usuario
-            payment_method = db.query(PaymentMethod).filter(
+            new_payment_method = db.query(PaymentMethod).filter(
                 and_(
                     PaymentMethod.payment_id == new_payment_method_id,
                     PaymentMethod.user_id == user_id,
@@ -271,13 +323,11 @@ class SubscriptionService:
                 )
             ).first()
             
-            if not payment_method:
-                return {"success": False, "error": "Método de pago no válido"}
+            if not new_payment_method:
+                return {"success": False, "error": "Método de pago no válido o no encontrado"}
             
+            # Actualizar método de pago
             subscription.payment_method_id = new_payment_method_id
-            # Resetear intentos fallidos al cambiar método de pago
-            subscription.failed_payment_attempts = 0
-            
             db.commit()
             db.refresh(subscription)
             
@@ -293,8 +343,18 @@ class SubscriptionService:
     
     @staticmethod
     def get_subscription_history(db: Session, user_id: int) -> Dict:
-        """Obtiene el historial de órdenes de suscripción"""
+        """
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Obtiene el historial completo de órdenes generadas por la suscripción del usuario.
+                     Incluye totales gastados y cantidad de órdenes.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            user_id (int): ID del usuario del cual se obtendrá el historial.
+        Retorna:
+            Dict: Diccionario con subscription, orders, total_orders y total_spent.
+        """
         try:
+            # Obtener suscripción
             subscription = db.query(Subscription).filter(
                 Subscription.user_id == user_id
             ).first()
@@ -302,22 +362,20 @@ class SubscriptionService:
             if not subscription:
                 return {"success": False, "error": "No se encontró suscripción"}
             
-            # Obtener todas las órdenes de suscripción
+            # Obtener todas las órdenes de la suscripción
             orders = db.query(Order).filter(
-                and_(
-                    Order.user_id == user_id,
-                    Order.is_subscription == True
-                )
+                Order.subscription_id == subscription.subscription_id
             ).order_by(Order.order_date.desc()).all()
             
-            total_spent = sum(float(order.total_amount) for order in orders)
+            total_orders = len(orders)
+            total_spent = sum(order.total_amount for order in orders)
             
             return {
                 "success": True,
                 "subscription": subscription,
                 "orders": orders,
-                "total_orders": len(orders),
-                "total_spent": Decimal(str(total_spent))
+                "total_orders": total_orders,
+                "total_spent": total_spent
             }
             
         except Exception as e:
@@ -329,27 +387,31 @@ class SubscriptionService:
         fitness_profile: FitnessProfile
     ) -> List[Product]:
         """
-        Selecciona productos automáticamente basados en el fitness profile.
-        Lógica de selección basada en el plan y objetivos.
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Selecciona hasta 3 productos personalizados basándose en el perfil fitness del usuario.
+                     Prioriza productos que coincidan con el plan recomendado y objetivos fitness.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            fitness_profile (FitnessProfile): Perfil fitness del usuario con atributos y recomendaciones.
+        Retorna:
+            List[Product]: Lista de hasta 3 productos seleccionados para la suscripción.
         """
-        attributes = fitness_profile.attributes
-        plan_name = attributes.get("recommended_plan")
-        recommended_products_names = attributes.get("recommended_products", [])
+        attributes = fitness_profile.attributes or {}
+        recommended_plan = attributes.get("recommended_plan", "")
         
+        # Buscar productos que coincidan con el plan recomendado
         selected_products = []
         
-        # Buscar productos por nombre recomendado
-        for product_name in recommended_products_names:
+        if recommended_plan:
             products = db.query(Product).filter(
                 and_(
-                    Product.name.ilike(f"%{product_name}%"),
                     Product.is_active == True,
-                    Product.stock > 0
+                    Product.stock > 0,
+                    Product.name.ilike(f"%{recommended_plan}%")
                 )
-            ).limit(1).all()
+            ).limit(3).all()
             
-            if products:
-                selected_products.extend(products)
+            selected_products.extend(products)
         
         # Si no se encontraron suficientes productos por nombre, buscar por objetivos
         if len(selected_products) < 3:
@@ -374,7 +436,17 @@ class SubscriptionService:
         user: User
     ) -> Dict:
         """
-        Procesa el cobro mensual de una suscripción y crea la orden correspondiente.
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: Procesa el cobro mensual de una suscripción y crea la orden correspondiente.
+                     Realiza el cargo a través de Stripe, selecciona productos personalizados,
+                     crea la orden y actualiza el inventario.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+            subscription (Subscription): Objeto de suscripción a cobrar.
+            user (User): Usuario propietario de la suscripción.
+        Retorna:
+            Dict: Diccionario con success, order_id y message si fue exitoso.
+                  En caso de error, incluye el mensaje de error.
         """
         try:
             # Verificar que tiene stripe_customer_id
@@ -492,8 +564,15 @@ class SubscriptionService:
     @staticmethod
     def process_due_subscriptions(db: Session) -> Dict:
         """
-        CRON JOB: Procesa todas las suscripciones que tienen cobro pendiente hoy.
-        Esta función debe ejecutarse diariamente a medianoche.
+        Autor: Luis Flores y Lizbeth Barajas
+        Descripción: CRON JOB - Procesa todas las suscripciones que tienen cobro pendiente hoy.
+                     Esta función debe ejecutarse diariamente a medianoche para gestionar
+                     los cobros automáticos y actualizar las fechas de próxima entrega.
+        Parámetros:
+            db (Session): Sesión de base de datos de SQLAlchemy.
+        Retorna:
+            Dict: Diccionario con success y results detallando total procesado,
+                  exitosos, fallidos y lista de errores.
         """
         try:
             today = date.today()
